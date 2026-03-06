@@ -14,7 +14,183 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      blueprints: {
+        Row: {
+          checklist: string | null
+          created_at: string
+          id: string
+          logic: string | null
+          max_allocation: number | null
+          risk_rules: string | null
+          tier: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          checklist?: string | null
+          created_at?: string
+          id?: string
+          logic?: string | null
+          max_allocation?: number | null
+          risk_rules?: string | null
+          tier: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          checklist?: string | null
+          created_at?: string
+          id?: string
+          logic?: string | null
+          max_allocation?: number | null
+          risk_rules?: string | null
+          tier?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      journal_entries: {
+        Row: {
+          created_at: string
+          date: string
+          id: string
+          lessons: string | null
+          mood: string | null
+          post_market_notes: string | null
+          pre_market_notes: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          date?: string
+          id?: string
+          lessons?: string | null
+          mood?: string | null
+          post_market_notes?: string | null
+          pre_market_notes?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: string
+          lessons?: string | null
+          mood?: string | null
+          post_market_notes?: string | null
+          pre_market_notes?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          default_account: string | null
+          display_name: string | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          default_account?: string | null
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          default_account?: string | null
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      trades: {
+        Row: {
+          account_name: string | null
+          created_at: string
+          direction: string
+          entry_date: string
+          entry_price: number
+          exit_date: string | null
+          exit_price: number | null
+          fees: number | null
+          id: string
+          notes: string | null
+          pnl: number | null
+          pnl_percent: number | null
+          quantity: number
+          screenshot_url: string | null
+          status: string
+          stop_loss: number | null
+          strategy: string | null
+          symbol: string
+          tags: string[] | null
+          take_profit: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_name?: string | null
+          created_at?: string
+          direction: string
+          entry_date: string
+          entry_price: number
+          exit_date?: string | null
+          exit_price?: number | null
+          fees?: number | null
+          id?: string
+          notes?: string | null
+          pnl?: number | null
+          pnl_percent?: number | null
+          quantity?: number
+          screenshot_url?: string | null
+          status?: string
+          stop_loss?: number | null
+          strategy?: string | null
+          symbol: string
+          tags?: string[] | null
+          take_profit?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_name?: string | null
+          created_at?: string
+          direction?: string
+          entry_date?: string
+          entry_price?: number
+          exit_date?: string | null
+          exit_price?: number | null
+          fees?: number | null
+          id?: string
+          notes?: string | null
+          pnl?: number | null
+          pnl_percent?: number | null
+          quantity?: number
+          screenshot_url?: string | null
+          status?: string
+          stop_loss?: number | null
+          strategy?: string | null
+          symbol?: string
+          tags?: string[] | null
+          take_profit?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
