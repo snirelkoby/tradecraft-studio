@@ -12,6 +12,8 @@ import CalendarView from "./pages/CalendarView";
 import Blueprints from "./pages/Blueprints";
 import Ledger from "./pages/Ledger";
 import RiskEngine from "./pages/RiskEngine";
+import Calculators from "./pages/Calculators";
+import Journal from "./pages/Journal";
 import SettingsPage from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
@@ -45,8 +47,10 @@ const App = () => (
               <Route path="/trades" element={<Trades />} />
               <Route path="/calendar" element={<CalendarView />} />
               <Route path="/blueprints" element={<Blueprints />} />
+              <Route path="/journal" element={<Journal />} />
               <Route path="/ledger" element={<Ledger />} />
               <Route path="/risk" element={<RiskEngine />} />
+              <Route path="/calculators" element={<Calculators />} />
               <Route path="/settings" element={<SettingsPage />} />
             </Route>
             <Route path="*" element={<NotFound />} />

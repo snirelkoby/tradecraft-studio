@@ -1,6 +1,6 @@
 import {
   BarChart3, BookOpen, Calendar, FileText, PenTool,
-  Calculator, Settings, LogOut
+  Calculator, Settings, LogOut, Notebook, FlaskConical
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
@@ -16,8 +16,10 @@ const navItems = [
   { title: 'Trade Journal', url: '/trades', icon: PenTool },
   { title: 'Calendar', url: '/calendar', icon: Calendar },
   { title: 'Blueprints', url: '/blueprints', icon: BookOpen },
+  { title: 'Daily Journal', url: '/journal', icon: Notebook },
   { title: 'Ledger', url: '/ledger', icon: FileText },
   { title: 'Risk Engine', url: '/risk', icon: Calculator },
+  { title: 'Calculators', url: '/calculators', icon: FlaskConical },
   { title: 'Settings', url: '/settings', icon: Settings },
 ];
 
