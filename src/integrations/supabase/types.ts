@@ -21,6 +21,7 @@ export type Database = {
           id: string
           logic: string | null
           max_allocation: number | null
+          name: string | null
           risk_rules: string | null
           tier: string
           updated_at: string
@@ -32,6 +33,7 @@ export type Database = {
           id?: string
           logic?: string | null
           max_allocation?: number | null
+          name?: string | null
           risk_rules?: string | null
           tier: string
           updated_at?: string
@@ -43,6 +45,7 @@ export type Database = {
           id?: string
           logic?: string | null
           max_allocation?: number | null
+          name?: string | null
           risk_rules?: string | null
           tier?: string
           updated_at?: string
@@ -119,6 +122,7 @@ export type Database = {
       trades: {
         Row: {
           account_name: string | null
+          asset_type: string | null
           created_at: string
           direction: string
           entry_date: string
@@ -143,6 +147,7 @@ export type Database = {
         }
         Insert: {
           account_name?: string | null
+          asset_type?: string | null
           created_at?: string
           direction: string
           entry_date: string
@@ -167,6 +172,7 @@ export type Database = {
         }
         Update: {
           account_name?: string | null
+          asset_type?: string | null
           created_at?: string
           direction?: string
           entry_date?: string
