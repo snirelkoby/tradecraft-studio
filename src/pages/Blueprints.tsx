@@ -12,6 +12,7 @@ const TIERS = ['AAA', 'AA', 'A', 'B', 'C', 'D'];
 interface Blueprint {
   id?: string;
   tier: string;
+  name: string;
   logic: string;
   risk_rules: string;
   checklist: string;
@@ -35,6 +36,7 @@ export default function Blueprints() {
       map[b.tier] = {
         id: b.id,
         tier: b.tier,
+        name: (b as any).name ?? '',
         logic: b.logic ?? '',
         risk_rules: b.risk_rules ?? '',
         checklist: b.checklist ?? '',
@@ -51,21 +53,23 @@ export default function Blueprints() {
 
     if (bp.id) {
       const { error } = await supabase.from('blueprints').update({
+        name: bp.name,
         logic: bp.logic,
         risk_rules: bp.risk_rules,
         checklist: bp.checklist,
         max_allocation: bp.max_allocation,
-      }).eq('id', bp.id);
+      } as any).eq('id', bp.id);
       if (error) return toast.error(error.message);
     } else {
       const { error } = await supabase.from('blueprints').insert({
         user_id: user.id,
         tier,
+        name: bp.name,
         logic: bp.logic,
         risk_rules: bp.risk_rules,
         checklist: bp.checklist,
         max_allocation: bp.max_allocation,
-      });
+      } as any);
       if (error) return toast.error(error.message);
     }
     toast.success(`Blueprint ${tier} saved`);
@@ -76,7 +80,7 @@ export default function Blueprints() {
     setBlueprints(prev => ({
       ...prev,
       [tier]: {
-        ...prev[tier] ?? { tier, logic: '', risk_rules: '', checklist: '', max_allocation: 1 },
+        ...prev[tier] ?? { tier, name: '', logic: '', risk_rules: '', checklist: '', max_allocation: 1 },
         [field]: value,
       },
     }));
@@ -100,11 +104,21 @@ export default function Blueprints() {
           ))}
         </TabsList>
         {TIERS.map(tier => {
-          const bp = blueprints[tier] ?? { tier, logic: '', risk_rules: '', checklist: '', max_allocation: 1 };
+          const bp = blueprints[tier] ?? { tier, name: '', logic: '', risk_rules: '', checklist: '', max_allocation: 1 };
           return (
             <TabsContent key={tier} value={tier} className="mt-4">
               <div className="rounded-xl border border-border bg-card p-6 space-y-4">
-                <h3 className="font-bold text-lg">Level {tier} Specification</h3>
+                <div className="flex items-center gap-4">
+                  <h3 className="font-bold text-lg">Level {tier}</h3>
+                  <div className="flex-1">
+                    <Input
+                      value={bp.name}
+                      onChange={(e) => updateField(tier, 'name', e.target.value)}
+                      placeholder={`Strategy name (e.g., "Breakout Momentum")`}
+                      className="bg-secondary text-lg font-semibold"
+                    />
+                  </div>
+                </div>
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs text-muted-foreground uppercase mb-1 block">Operational Logic (Entry/Exit)</label>
