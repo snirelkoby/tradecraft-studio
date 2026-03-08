@@ -200,7 +200,7 @@ export default function TradeAnalysis() {
     const pnlAtHigh = moveToHigh * dollarPerPoint - fees;
     const pnlAtLow = moveToLow * dollarPerPoint - fees;
     
-    const cap = Math.max(Math.abs(pnl) * 3, 200);
+    const cap = Math.max(Math.abs(pnl) * 1.5, 50);
     
     return {
       wickHigh: Math.min(Math.max(pnlAtHigh, pnlAtLow, pnl, 0), cap),
