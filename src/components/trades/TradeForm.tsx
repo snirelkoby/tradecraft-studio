@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { useAddTrade, calculateFuturesPnl } from '@/hooks/useTrades';
+import { useAddTrade, calculateFuturesPnl, useTrades } from '@/hooks/useTrades';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { ASSET_TYPES, FUTURES_CONFIG, FOREX_PAIRS, CRYPTO_SYMBOLS } from '@/lib/assetConfig';
+import { TagInput } from './TagInput';
 
 const STRATEGIES = ['AAA', 'AA', 'A', 'B', 'C', 'D'];
 
