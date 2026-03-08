@@ -10,6 +10,7 @@ import ReactMarkdown from 'react-markdown';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CotHistoryChart } from '@/components/macro/CotHistoryChart';
 import { IndicatorCharts } from '@/components/macro/IndicatorChart';
+import { OptionsSentiment } from '@/components/macro/OptionsSentiment';
 
 interface Indicator {
   name: string;
