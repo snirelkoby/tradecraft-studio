@@ -1,11 +1,14 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useTrades } from '@/hooks/useTrades';
+import { useAccounts } from '@/hooks/useAccounts';
 import { format, parseISO, isAfter, isBefore } from 'date-fns';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
-  ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis,
-  Tooltip, CartesianGrid, Cell, AreaChart, Area, LineChart, BarChart, ReferenceLine
+  ResponsiveContainer, ComposedChart, Bar, XAxis, YAxis,
+  Tooltip, CartesianGrid, Cell, AreaChart, Area, BarChart, Line,
+  ReferenceLine, Customized
 } from 'recharts';
 import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
@@ -24,68 +27,58 @@ const VIEWS = [
 
 type ViewId = typeof VIEWS[number]['id'];
 
-interface YahooResult {
-  high: number;
-  low: number;
-}
+interface YahooResult { high: number; low: number; }
 
-// Custom candlestick shape with wicks
-const CandleBody = (props: any) => {
-  const { x, y, width, height, payload } = props;
-  if (!payload) return null;
+// Renders wick lines on top of the bar chart using the chart's actual Y scale
+const WickRenderer = (props: any) => {
+  const { formattedGraphicalItems, data } = props;
+  if (!formattedGraphicalItems || !data) return null;
 
-  const { isProfit, wickHigh, wickLow, close } = payload;
-  const color = isProfit ? 'hsl(var(--chart-green))' : 'hsl(var(--chart-purple, 262 83% 58%))';
+  // Find the bar series to get pixel positions
+  const barItem = formattedGraphicalItems.find((item: any) => item?.props?.dataKey === 'close');
+  if (!barItem?.props?.data) return null;
 
-  // The bar renders from 0 to close. We need wick positions relative to the chart.
-  // y = top of bar, y + height = bottom of bar
-  // For positive close: y is at close value, y+height is at 0
-  // For negative close: y is at 0, y+height is at close value
+  const barData = barItem.props.data;
+  // Get the yAxis to map values to pixels
+  const yAxisId = barItem.props.yAxisId || 0;
+  const yAxisMap = props.yAxisMap;
+  const yAxis = yAxisMap?.[yAxisId];
+  if (!yAxis?.scale) return null;
 
-  if (wickHigh == null && wickLow == null) {
-    // No yahoo data, render plain bar
-    return (
-      <rect
-        x={x}
-        y={y}
-        width={width}
-        height={Math.max(Math.abs(height), 2)}
-        fill={color}
-        rx={2}
-      />
-    );
-  }
-
-  // Calculate wick pixel positions using the scale
-  // We need access to the Y scale. Since recharts doesn't pass it easily,
-  // we calculate wick positions proportionally
-  const barTop = y;
-  const barBottom = y + Math.abs(height);
-  const barValue = close; // The value at the top of the bar (for positive) or bottom (for negative)
-
-  const centerX = x + width / 2;
-  const wickWidth = 1.5;
+  const scale = yAxis.scale;
 
   return (
     <g>
-      <rect
-        x={x}
-        y={barTop}
-        width={width}
-        height={Math.max(Math.abs(height), 2)}
-        fill={color}
-        rx={2}
-      />
+      {barData.map((bar: any, i: number) => {
+        const d = data[i];
+        if (!d || d.wickHigh == null || d.wickLow == null) return null;
+
+        const centerX = bar.x + bar.width / 2;
+        const yHigh = scale(d.wickHigh);
+        const yLow = scale(d.wickLow);
+        const color = d.isProfit ? 'hsl(var(--chart-green))' : 'hsl(var(--chart-purple, 262 83% 58%))';
+
+        return (
+          <line
+            key={i}
+            x1={centerX} y1={yHigh}
+            x2={centerX} y2={yLow}
+            stroke={color} strokeWidth={1.5}
+          />
+        );
+      })}
     </g>
   );
 };
 
 export default function TradeAnalysis() {
   const { data: trades, isLoading } = useTrades();
+  const { data: accounts } = useAccounts();
   const [activeView, setActiveView] = useState<ViewId>('trade-candles');
   const [mode, setMode] = useState<'per-trade' | 'daily'>('per-trade');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [selectedAccount, setSelectedAccount] = useState<string>('all');
   const [yahooData, setYahooData] = useState<Record<string, YahooResult | null>>({});
   const [loadingYahoo, setLoadingYahoo] = useState(false);
 
@@ -93,19 +86,19 @@ export default function TradeAnalysis() {
     return (trades ?? [])
       .filter(t => t.status === 'closed' && t.pnl !== null)
       .filter(t => {
+        if (selectedAccount !== 'all' && t.account_name !== selectedAccount) return false;
         if (dateFrom && isBefore(parseISO(t.entry_date), parseISO(dateFrom))) return false;
         if (dateTo && isAfter(parseISO(t.entry_date), parseISO(dateTo + 'T23:59:59'))) return false;
         return true;
       })
       .sort((a, b) => new Date(a.entry_date).getTime() - new Date(b.entry_date).getTime());
-  }, [trades, dateFrom, dateTo]);
+  }, [trades, dateFrom, dateTo, selectedAccount]);
 
   // Fetch Yahoo Finance data for per-trade mode
   useEffect(() => {
     if (mode !== 'per-trade' || closed.length === 0) return;
 
     const fetchYahoo = async () => {
-      // Build requests for trades that have exit dates
       const symbols = closed
         .filter(t => t.exit_date)
         .map(t => ({
@@ -116,17 +109,14 @@ export default function TradeAnalysis() {
         }));
 
       if (symbols.length === 0) return;
-
-      // Check which ones we already have
       const needed = symbols.filter(s => !(s.key in yahooData));
       if (needed.length === 0) return;
 
       setLoadingYahoo(true);
       try {
-        // Batch in chunks of 20
         for (let i = 0; i < needed.length; i += 20) {
           const batch = needed.slice(i, i + 20);
-          const { data, error } = await supabase.functions.invoke('yahoo-finance', {
+          const { data } = await supabase.functions.invoke('yahoo-finance', {
             body: { symbols: batch },
           });
           if (data?.results) {
@@ -143,15 +133,13 @@ export default function TradeAnalysis() {
     fetchYahoo();
   }, [closed, mode]);
 
-  // Calculate P&L at a given price for a trade
-  const calcPnlAtPrice = (trade: Trade, price: number): number => {
+  const calcPnlAtPrice = useCallback((trade: Trade, price: number): number => {
     const diff = trade.direction === 'long'
       ? price - trade.entry_price
       : trade.entry_price - price;
     return diff * trade.quantity - (trade.fees ?? 0);
-  };
+  }, []);
 
-  // Per-trade candle data with real wicks from Yahoo
   const perTradeCandles = useMemo(() => {
     return closed.map((t, i) => {
       const pnl = t.pnl ?? 0;
@@ -161,7 +149,6 @@ export default function TradeAnalysis() {
       let wickLow: number | null = null;
 
       if (yahoo) {
-        // Calculate what the P&L would have been at the yahoo high/low
         const pnlAtHigh = calcPnlAtPrice(t, yahoo.high);
         const pnlAtLow = calcPnlAtPrice(t, yahoo.low);
         wickHigh = Math.max(pnlAtHigh, pnlAtLow, pnl, 0);
@@ -170,14 +157,11 @@ export default function TradeAnalysis() {
 
       return {
         label: `#${i + 1}`,
-        time: format(parseISO(t.entry_date), 'HH:mm'),
         date: format(parseISO(t.entry_date), 'MM/dd'),
         fullDate: format(parseISO(t.entry_date), 'MMM dd HH:mm'),
         symbol: t.symbol,
         open: 0,
         close: pnl,
-        high: wickHigh,
-        low: wickLow,
         wickHigh,
         wickLow,
         isProfit: pnl >= 0,
@@ -185,9 +169,8 @@ export default function TradeAnalysis() {
         direction: t.direction,
       };
     });
-  }, [closed, yahooData]);
+  }, [closed, yahooData, calcPnlAtPrice]);
 
-  // Daily candle data
   const dailyCandles = useMemo(() => {
     const dayMap = new Map<string, Trade[]>();
     closed.forEach(t => {
@@ -210,8 +193,6 @@ export default function TradeAnalysis() {
         fullDate: format(parseISO(day), 'MMM dd'),
         open: 0,
         close: running,
-        high,
-        low,
         wickHigh: high,
         wickLow: low,
         isProfit: running >= 0,
@@ -224,7 +205,6 @@ export default function TradeAnalysis() {
 
   const candleData = mode === 'per-trade' ? perTradeCandles : dailyCandles;
 
-  // Equity curve data
   const equityData = useMemo(() => {
     let cum = 0;
     return closed.map((t, i) => {
@@ -233,12 +213,10 @@ export default function TradeAnalysis() {
         label: mode === 'per-trade' ? `#${i + 1}` : format(parseISO(t.entry_date), 'MM/dd'),
         fullDate: format(parseISO(t.entry_date), 'MMM dd HH:mm'),
         equity: cum,
-        pnl: t.pnl ?? 0,
       };
     });
   }, [closed, mode]);
 
-  // Long/Short equity
   const longEquityData = useMemo(() => {
     let cum = 0;
     return closed.filter(t => t.direction === 'long').map((t, i) => {
@@ -255,7 +233,6 @@ export default function TradeAnalysis() {
     });
   }, [closed]);
 
-  // Drawdown data
   const drawdownData = useMemo(() => {
     let cum = 0, peak = 0;
     return closed.map((t, i) => {
@@ -271,7 +248,6 @@ export default function TradeAnalysis() {
     });
   }, [closed]);
 
-  // Daily P&L
   const dailyPLData = useMemo(() => {
     const dayMap = new Map<string, number>();
     closed.forEach(t => {
@@ -288,104 +264,28 @@ export default function TradeAnalysis() {
     color: 'hsl(var(--foreground))',
   };
 
-  // Custom SVG candlestick renderer using customized bar shape
+  const CandleTooltip = ({ active, payload, label }: any) => {
+    if (!active || !payload?.length) return null;
+    const d = payload[0]?.payload;
+    if (!d) return null;
+    return (
+      <div className="rounded-lg border border-border bg-popover p-3 text-xs space-y-1 shadow-lg">
+        <p className="font-semibold text-foreground">{d.fullDate ?? label}</p>
+        {d.symbol && <p className="text-muted-foreground">{d.symbol} · {d.direction}</p>}
+        <p>P&L: <span className={d.isProfit ? 'text-chart-green' : 'text-chart-red'}>${d.pnl?.toFixed(2)}</span></p>
+        {d.wickHigh != null && <p className="text-chart-green">Max P&L: ${d.wickHigh.toFixed(2)}</p>}
+        {d.wickLow != null && <p className="text-chart-red">Min P&L: ${d.wickLow.toFixed(2)}</p>}
+        {d.trades && <p className="text-muted-foreground">{d.trades} trades</p>}
+      </div>
+    );
+  };
+
   const renderCandlestickChart = () => {
     if (candleData.length === 0) {
       return <p className="text-muted-foreground text-center py-20">No closed trades in selected range</p>;
     }
 
-    // Calculate Y domain to include wicks
-    const allValues = candleData.flatMap(d => [
-      d.close, d.open,
-      d.wickHigh ?? d.close,
-      d.wickLow ?? d.close,
-    ]);
-    const yMin = Math.min(...allValues) * 1.1;
-    const yMax = Math.max(...allValues) * 1.1;
-
-    return (
-      <ResponsiveContainer width="100%" height={450}>
-        <ComposedChart data={candleData}>
-          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-          <XAxis
-            dataKey="label"
-            stroke="hsl(var(--muted-foreground))"
-            fontSize={10}
-            interval={Math.max(0, Math.floor(candleData.length / 20))}
-          />
-          <YAxis
-            stroke="hsl(var(--muted-foreground))"
-            fontSize={11}
-            tickFormatter={v => `$${v}`}
-            domain={[yMin, yMax]}
-          />
-          <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" strokeOpacity={0.5} />
-          <Tooltip
-            contentStyle={tooltipStyle}
-            content={({ active, payload, label }) => {
-              if (!active || !payload?.length) return null;
-              const d = payload[0]?.payload;
-              if (!d) return null;
-              return (
-                <div className="rounded-lg border border-border bg-popover p-3 text-xs space-y-1">
-                  <p className="font-semibold text-foreground">{d.fullDate ?? label}</p>
-                  {d.symbol && <p className="text-muted-foreground">{d.symbol} · {d.direction}</p>}
-                  <p>
-                    P&L: <span className={d.isProfit ? 'text-chart-green' : 'text-chart-red'}>${d.pnl?.toFixed(2)}</span>
-                  </p>
-                  {d.wickHigh != null && (
-                    <p className="text-chart-green">High: ${d.wickHigh.toFixed(2)}</p>
-                  )}
-                  {d.wickLow != null && (
-                    <p className="text-chart-red">Low: ${d.wickLow.toFixed(2)}</p>
-                  )}
-                  {d.trades && <p className="text-muted-foreground">{d.trades} trades</p>}
-                </div>
-              );
-            }}
-          />
-          {/* Wick lines (high to low) */}
-          <Bar dataKey="wickHigh" fill="transparent" barSize={2} name="_wickHigh" legendType="none"
-            shape={(props: any) => {
-              const { x, y, width, payload } = props;
-              if (!payload || payload.wickHigh == null || payload.wickLow == null) return null;
-              const color = payload.isProfit ? 'hsl(var(--chart-green))' : 'hsl(var(--chart-purple, 262 83% 58%))';
-              const centerX = x + width / 2;
-
-              // We need to map wickLow to pixel position. The bar for wickHigh goes from 0 to wickHigh.
-              // We can use the ratio. The full Y range is yMax - yMin.
-              // Actually let's use a different approach - use two separate scatter-like elements
-              return null;
-            }}
-          />
-          {/* Candle bodies */}
-          <Bar dataKey="close" barSize={mode === 'per-trade' ? 8 : 20} radius={[2, 2, 2, 2]} name="P&L">
-            {candleData.map((entry, i) => (
-              <Cell key={i} fill={entry.isProfit ? 'hsl(var(--chart-green))' : 'hsl(var(--chart-purple, 262 83% 58%))'} />
-            ))}
-          </Bar>
-          {/* Wick dots for high and low */}
-          <Line type="monotone" dataKey="wickHigh" stroke="none" dot={(props: any) => {
-            const { cx, cy, payload } = props;
-            if (!payload || payload.wickHigh == null) return <circle r={0} />;
-            return <circle cx={cx} cy={cy} r={0} />;
-          }} name="High" legendType="none" />
-          <Line type="monotone" dataKey="wickLow" stroke="none" dot={(props: any) => {
-            const { cx, cy, payload } = props;
-            if (!payload || payload.wickLow == null) return <circle r={0} />;
-            return <circle cx={cx} cy={cy} r={0} />;
-          }} name="Low" legendType="none" />
-        </ComposedChart>
-      </ResponsiveContainer>
-    );
-  };
-
-  // Actually, let me use a proper SVG-based approach for candlesticks
-  const renderCandlestickSVG = () => {
-    if (candleData.length === 0) {
-      return <p className="text-muted-foreground text-center py-20">No closed trades in selected range</p>;
-    }
-
+    // Calculate Y domain including wicks
     const allValues = candleData.flatMap(d => [
       d.close, 0,
       d.wickHigh ?? d.close,
@@ -393,9 +293,7 @@ export default function TradeAnalysis() {
     ]);
     const dataMin = Math.min(...allValues);
     const dataMax = Math.max(...allValues);
-    const padding = Math.max(Math.abs(dataMax - dataMin) * 0.1, 1);
-    const yMin = dataMin - padding;
-    const yMax = dataMax + padding;
+    const padding = Math.max(Math.abs(dataMax - dataMin) * 0.1, 10);
 
     return (
       <ResponsiveContainer width="100%" height={450}>
@@ -411,88 +309,14 @@ export default function TradeAnalysis() {
             stroke="hsl(var(--muted-foreground))"
             fontSize={11}
             tickFormatter={v => `$${v}`}
-            domain={[yMin, yMax]}
+            domain={[dataMin - padding, dataMax + padding]}
           />
           <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" strokeOpacity={0.5} />
-          <Tooltip
-            content={({ active, payload, label }) => {
-              if (!active || !payload?.length) return null;
-              const d = payload[0]?.payload;
-              if (!d) return null;
-              return (
-                <div className="rounded-lg border border-border bg-popover p-3 text-xs space-y-1 shadow-lg">
-                  <p className="font-semibold text-foreground">{d.fullDate ?? label}</p>
-                  {d.symbol && <p className="text-muted-foreground">{d.symbol} · {d.direction}</p>}
-                  <p>
-                    P&L: <span className={d.isProfit ? 'text-chart-green' : 'text-chart-red'}>${d.pnl?.toFixed(2)}</span>
-                  </p>
-                  {d.wickHigh != null && <p className="text-chart-green">Max P&L: ${d.wickHigh.toFixed(2)}</p>}
-                  {d.wickLow != null && <p className="text-chart-red">Min P&L: ${d.wickLow.toFixed(2)}</p>}
-                  {d.trades && <p className="text-muted-foreground">{d.trades} trades</p>}
-                </div>
-              );
-            }}
-          />
-          {/* Candle body (bar from 0 to close) */}
-          <Bar dataKey="close" barSize={mode === 'per-trade' ? 8 : 20} radius={[2, 2, 2, 2]} name="P&L"
-            shape={(props: any) => {
-              const { x, y, width, height, payload, background } = props;
-              if (!payload) return null;
-              const color = payload.isProfit ? 'hsl(var(--chart-green))' : 'hsl(var(--chart-purple, 262 83% 58%))';
-              const centerX = x + width / 2;
-              const barTop = height >= 0 ? y : y + height;
-              const barBottom = height >= 0 ? y + height : y;
-              const absHeight = Math.abs(height);
-
-              // Calculate wick positions using proportional mapping
-              // The bar goes from value 0 to value close
-              // We need to map wickHigh and wickLow to pixel positions
-              let wickTopY = barTop;
-              let wickBottomY = barTop + absHeight;
-
-              if (payload.wickHigh != null && payload.wickLow != null && payload.close !== 0) {
-                // pixels per dollar: absHeight / |close|
-                const pxPerDollar = absHeight / Math.abs(payload.close);
-
-                if (payload.close >= 0) {
-                  // bar: top = close value (y), bottom = 0 value (y + height)
-                  // wickHigh is above close → goes above bar
-                  wickTopY = y - (payload.wickHigh - payload.close) * pxPerDollar;
-                  // wickLow is below 0 → goes below bar
-                  wickBottomY = y + absHeight + Math.abs(payload.wickLow) * pxPerDollar;
-                } else {
-                  // bar: top = 0 value (y), bottom = close value (y + absHeight)
-                  // wickHigh is above 0 → goes above bar
-                  wickTopY = y - payload.wickHigh * pxPerDollar;
-                  // wickLow is below close → goes below bar
-                  wickBottomY = y + absHeight + (Math.abs(payload.wickLow) - Math.abs(payload.close)) * pxPerDollar;
-                }
-              } else if (payload.wickHigh == null && payload.wickLow == null) {
-                // No wick data, just show the bar
-                return (
-                  <rect x={x} y={barTop} width={width} height={Math.max(absHeight, 2)} fill={color} rx={2} />
-                );
-              }
-
-              return (
-                <g>
-                  {/* Wick line from high to low */}
-                  <line
-                    x1={centerX} y1={wickTopY}
-                    x2={centerX} y2={wickBottomY}
-                    stroke={color} strokeWidth={1.5}
-                  />
-                  {/* Candle body */}
-                  <rect
-                    x={x} y={barTop}
-                    width={width}
-                    height={Math.max(absHeight, 2)}
-                    fill={color} rx={2}
-                  />
-                </g>
-              );
-            }}
-          >
+          <Tooltip content={<CandleTooltip />} />
+          {/* Wicks rendered via Customized to access the Y scale directly */}
+          <Customized component={WickRenderer} />
+          {/* Candle bodies */}
+          <Bar dataKey="close" barSize={mode === 'per-trade' ? 8 : 20} radius={[2, 2, 2, 2]} name="P&L">
             {candleData.map((entry, i) => (
               <Cell key={i} fill={entry.isProfit ? 'hsl(var(--chart-green))' : 'hsl(var(--chart-purple, 262 83% 58%))'} />
             ))}
@@ -509,7 +333,7 @@ export default function TradeAnalysis() {
 
     switch (activeView) {
       case 'trade-candles':
-        return renderCandlestickSVG();
+        return renderCandlestickChart();
 
       case 'equity-curve':
         return (
@@ -628,6 +452,8 @@ export default function TradeAnalysis() {
     return <div className="flex items-center justify-center h-64 text-muted-foreground">Loading...</div>;
   }
 
+  const totalPnl = closed.reduce((s, t) => s + (t.pnl ?? 0), 0);
+
   return (
     <div className="space-y-4">
       <div>
@@ -636,21 +462,36 @@ export default function TradeAnalysis() {
       </div>
 
       <div className="flex flex-col lg:flex-row gap-4">
-        {/* Left sidebar - view selector */}
-        <div className="lg:w-56 flex-shrink-0 space-y-1">
-          {VIEWS.map(v => (
-            <button
-              key={v.id}
-              onClick={() => setActiveView(v.id)}
-              className={`w-full text-left text-sm px-4 py-2.5 rounded-lg transition-colors ${
-                activeView === v.id
-                  ? 'bg-primary text-primary-foreground font-semibold'
-                  : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-              }`}
-            >
-              {v.label}
-            </button>
-          ))}
+        {/* Left sidebar */}
+        <div className="lg:w-56 flex-shrink-0 space-y-3">
+          {/* Account selector */}
+          <Select value={selectedAccount} onValueChange={setSelectedAccount}>
+            <SelectTrigger className="w-full bg-secondary text-sm">
+              <SelectValue placeholder="All Accounts" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Accounts</SelectItem>
+              {accounts?.map(a => (
+                <SelectItem key={a.id} value={a.name}>{a.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <div className="space-y-1">
+            {VIEWS.map(v => (
+              <button
+                key={v.id}
+                onClick={() => setActiveView(v.id)}
+                className={`w-full text-left text-sm px-4 py-2.5 rounded-lg transition-colors ${
+                  activeView === v.id
+                    ? 'bg-primary text-primary-foreground font-semibold'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                }`}
+              >
+                {v.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Main chart area */}
@@ -681,25 +522,11 @@ export default function TradeAnalysis() {
               <span className="text-xs text-muted-foreground animate-pulse">Loading market data...</span>
             )}
             <div className="flex items-center gap-2 ml-auto">
-              <Input
-                type="date"
-                value={dateFrom}
-                onChange={e => setDateFrom(e.target.value)}
-                className="bg-secondary text-xs w-36"
-                placeholder="From"
-              />
+              <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="bg-secondary text-xs w-36" />
               <span className="text-muted-foreground text-xs">→</span>
-              <Input
-                type="date"
-                value={dateTo}
-                onChange={e => setDateTo(e.target.value)}
-                className="bg-secondary text-xs w-36"
-                placeholder="To"
-              />
+              <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="bg-secondary text-xs w-36" />
               {(dateFrom || dateTo) && (
-                <Button variant="ghost" size="sm" className="text-xs" onClick={() => { setDateFrom(''); setDateTo(''); }}>
-                  Clear
-                </Button>
+                <Button variant="ghost" size="sm" className="text-xs" onClick={() => { setDateFrom(''); setDateTo(''); }}>Clear</Button>
               )}
             </div>
           </div>
@@ -710,8 +537,8 @@ export default function TradeAnalysis() {
               Trades: <span className="text-foreground font-mono font-bold">{closed.length}</span>
             </span>
             <span className="text-muted-foreground">
-              P&L: <span className={`font-mono font-bold ${closed.reduce((s, t) => s + (t.pnl ?? 0), 0) >= 0 ? 'text-chart-green' : 'text-chart-red'}`}>
-                ${closed.reduce((s, t) => s + (t.pnl ?? 0), 0).toFixed(2)}
+              P&L: <span className={`font-mono font-bold ${totalPnl >= 0 ? 'text-chart-green' : 'text-chart-red'}`}>
+                ${totalPnl.toFixed(2)}
               </span>
             </span>
           </div>
