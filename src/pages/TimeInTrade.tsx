@@ -102,11 +102,11 @@ export default function TimeInTrade() {
           <ResponsiveContainer width="100%" height={350}>
             <ScatterChart>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis type="number" dataKey="duration" name="Duration (hrs)" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} label={{ value: 'Duration (hours)', position: 'insideBottom', offset: -5, style: { fill: 'hsl(var(--muted-foreground))', fontSize: 11 } }} />
+              <XAxis type="number" dataKey="duration" name="Duration (min)" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} label={{ value: 'Duration (minutes)', position: 'insideBottom', offset: -5, style: { fill: 'hsl(var(--muted-foreground))', fontSize: 11 } }} />
               <YAxis type="number" dataKey="pnl" name="P&L" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} label={{ value: 'P&L ($)', angle: -90, position: 'insideLeft', style: { fill: 'hsl(var(--muted-foreground))', fontSize: 11 } }} />
               <Tooltip
                 contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, color: 'hsl(var(--foreground))' }}
-                formatter={(val: number, name: string) => [name === 'P&L' ? `$${val.toFixed(2)}` : `${val.toFixed(1)}h`, name]}
+                formatter={(val: number, name: string) => [name === 'P&L' ? `$${val.toFixed(2)}` : `${val.toFixed(0)}m`, name]}
               />
               <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" />
               <Scatter data={analysis.points} name="Trades">
