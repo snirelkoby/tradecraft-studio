@@ -25,6 +25,10 @@ import Accounts from "./pages/Accounts";
 import SettingsPage from "./pages/Settings";
 import WeeklyReview from "./pages/WeeklyReview";
 import Playbook from "./pages/Playbook";
+import TradeReplay from "./pages/TradeReplay";
+import MistakeTracker from "./pages/MistakeTracker";
+import CommissionTracker from "./pages/CommissionTracker";
+import TradeComparison from "./pages/TradeComparison";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
