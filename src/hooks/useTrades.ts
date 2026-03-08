@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import type { Database } from '@/integrations/supabase/types';
+import { FUTURES_CONFIG } from '@/lib/assetConfig';
 
 type Trade = Database['public']['Tables']['trades']['Row'];
 type TradeInsert = Database['public']['Tables']['trades']['Insert'];
@@ -72,21 +73,67 @@ export function useDeleteTrade() {
   });
 }
 
+export function useBulkDeleteTrades() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { error } = await supabase.from('trades').delete().in('id', ids);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['trades'] }),
+  });
+}
+
+export function useDeleteAllTrades() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error('Not authenticated');
+      const { error } = await supabase.from('trades').delete().eq('user_id', user.id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['trades'] }),
+  });
+}
+
+/** Calculate P&L correctly for futures using tick value */
+export function calculateFuturesPnl(
+  symbol: string,
+  direction: 'long' | 'short',
+  entryPrice: number,
+  exitPrice: number,
+  quantity: number,
+  fees: number
+): { pnl: number; pnlPercent: number } {
+  const config = FUTURES_CONFIG.find(f => f.symbol === symbol);
+  if (!config) {
+    // Fallback to standard calculation
+    const raw = direction === 'long'
+      ? (exitPrice - entryPrice) * quantity
+      : (entryPrice - exitPrice) * quantity;
+    return { pnl: raw - fees, pnlPercent: ((exitPrice - entryPrice) / entryPrice) * 100 * (direction === 'short' ? -1 : 1) };
+  }
+
+  const ticks = (exitPrice - entryPrice) / config.tickSize;
+  const rawPnl = direction === 'long'
+    ? ticks * config.tickValue * quantity
+    : -ticks * config.tickValue * quantity;
+
+  return {
+    pnl: rawPnl - fees,
+    pnlPercent: ((exitPrice - entryPrice) / entryPrice) * 100 * (direction === 'short' ? -1 : 1),
+  };
+}
+
 // Analytics helpers
 export function useTradeStats(trades: Trade[] | undefined) {
   if (!trades || trades.length === 0) {
     return {
-      totalPnl: 0,
-      winRate: 0,
-      profitFactor: 0,
-      avgWin: 0,
-      avgLoss: 0,
-      totalTrades: 0,
-      wins: 0,
-      losses: 0,
-      bestTrade: 0,
-      worstTrade: 0,
-      avgRR: 0,
+      totalPnl: 0, winRate: 0, profitFactor: 0, avgWin: 0, avgLoss: 0,
+      totalTrades: 0, wins: 0, losses: 0, bestTrade: 0, worstTrade: 0, avgRR: 0,
     };
   }
 
