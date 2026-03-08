@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { Plus, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Trash2, ChevronLeft, ChevronRight, Loader2, Download } from 'lucide-react';
 import { format, startOfWeek, addWeeks, subWeeks, addDays } from 'date-fns';
 
 interface EconomicEvent {
@@ -32,14 +32,43 @@ const CURRENCIES = ['USD', 'EUR', 'GBP', 'JPY', 'CNY', 'AUD', 'CAD', 'CHF'];
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
+// Pre-defined key economic events for auto-import
+const KEY_EVENTS_TEMPLATE = [
+  { title: 'CPI YoY', currency: 'USD', impact: 'high' },
+  { title: 'Core CPI MoM', currency: 'USD', impact: 'high' },
+  { title: 'PPI YoY', currency: 'USD', impact: 'high' },
+  { title: 'Non-Farm Payrolls', currency: 'USD', impact: 'high' },
+  { title: 'Unemployment Rate', currency: 'USD', impact: 'high' },
+  { title: 'FOMC Interest Rate Decision', currency: 'USD', impact: 'high' },
+  { title: 'FOMC Press Conference', currency: 'USD', impact: 'high' },
+  { title: 'Fed Chair Powell Speech', currency: 'USD', impact: 'high' },
+  { title: 'GDP QoQ', currency: 'USD', impact: 'high' },
+  { title: 'Retail Sales MoM', currency: 'USD', impact: 'high' },
+  { title: 'ISM Manufacturing PMI', currency: 'USD', impact: 'medium' },
+  { title: 'ISM Services PMI', currency: 'USD', impact: 'medium' },
+  { title: 'Initial Jobless Claims', currency: 'USD', impact: 'medium' },
+  { title: 'Consumer Confidence', currency: 'USD', impact: 'medium' },
+  { title: 'PCE Price Index YoY', currency: 'USD', impact: 'high' },
+  { title: 'Core PCE MoM', currency: 'USD', impact: 'high' },
+  { title: 'Existing Home Sales', currency: 'USD', impact: 'medium' },
+  { title: 'New Home Sales', currency: 'USD', impact: 'medium' },
+  { title: 'Durable Goods Orders', currency: 'USD', impact: 'medium' },
+  { title: 'ECB Interest Rate Decision', currency: 'EUR', impact: 'high' },
+  { title: 'BOJ Interest Rate Decision', currency: 'JPY', impact: 'high' },
+  { title: 'BOE Interest Rate Decision', currency: 'GBP', impact: 'high' },
+];
+
 export default function EconomicCalendar() {
   const { user } = useAuth();
   const [weekStart, setWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 0 }));
   const [events, setEvents] = useState<EconomicEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [fetchingNews, setFetchingNews] = useState(false);
   const [form, setForm] = useState({ event_date: format(new Date(), 'yyyy-MM-dd'), event_time: '', title: '', currency: 'USD', impact: 'high', forecast: '', actual: '', previous: '', notes: '' });
   const tvRef = useRef<HTMLDivElement>(null);
+  const wbRef = useRef<HTMLDivElement>(null);
 
   const weekEnd = addDays(weekStart, 6);
 
@@ -80,6 +109,27 @@ export default function EconomicCalendar() {
     tvRef.current.appendChild(container);
   }, []);
 
+  // Walter Bloomberg Twitter Embed
+  useEffect(() => {
+    if (!wbRef.current) return;
+    wbRef.current.innerHTML = '';
+    
+    const anchor = document.createElement('a');
+    anchor.className = 'twitter-timeline';
+    anchor.setAttribute('data-theme', 'dark');
+    anchor.setAttribute('data-height', '600');
+    anchor.setAttribute('data-chrome', 'noheader nofooter noborders transparent');
+    anchor.href = 'https://twitter.com/DeItaone';
+    anchor.textContent = 'Tweets by Walter Bloomberg';
+    wbRef.current.appendChild(anchor);
+
+    const script = document.createElement('script');
+    script.src = 'https://platform.twitter.com/widgets.js';
+    script.async = true;
+    script.charset = 'utf-8';
+    wbRef.current.appendChild(script);
+  }, []);
+
   const loadEvents = async () => {
     setLoading(true);
     const { data } = await supabase
@@ -114,6 +164,59 @@ export default function EconomicCalendar() {
     loadEvents();
   };
 
+  const addFromTemplate = async (tmpl: typeof KEY_EVENTS_TEMPLATE[0]) => {
+    if (!user) return;
+    const { error } = await supabase.from('economic_events').insert({
+      user_id: user.id,
+      event_date: form.event_date,
+      title: tmpl.title,
+      currency: tmpl.currency,
+      impact: tmpl.impact,
+    } as any);
+    if (error) return toast.error(error.message);
+    toast.success(`${tmpl.title} נוסף`);
+    loadEvents();
+  };
+
+  const fetchAiEconomicEvents = async () => {
+    if (!user) return;
+    setFetchingNews(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('economic-events-ai', {
+        body: {
+          weekStart: format(weekStart, 'yyyy-MM-dd'),
+          weekEnd: format(weekEnd, 'yyyy-MM-dd'),
+        },
+      });
+      if (error) throw error;
+      if (data?.events?.length) {
+        for (const evt of data.events) {
+          await supabase.from('economic_events').insert({
+            user_id: user.id,
+            event_date: evt.event_date,
+            event_time: evt.event_time || null,
+            title: evt.title,
+            currency: evt.currency || 'USD',
+            impact: evt.impact || 'medium',
+            forecast: evt.forecast || null,
+            previous: evt.previous || null,
+            notes: 'ייובא אוטומטית ע״י AI',
+          } as any);
+        }
+        toast.success(`${data.events.length} אירועים יובאו`);
+        loadEvents();
+      } else {
+        toast.info('לא נמצאו אירועים חדשים לשבוע זה');
+      }
+    } catch (e: any) {
+      if (e?.message?.includes('429')) toast.error('Rate limit - נסה שוב בעוד דקה');
+      else if (e?.message?.includes('402')) toast.error('Payment required');
+      else toast.error('ייבוא נכשל: ' + (e.message || ''));
+    } finally {
+      setFetchingNews(false);
+    }
+  };
+
   const deleteEvent = async (id: string) => {
     await supabase.from('economic_events').delete().eq('id', id);
     loadEvents();
@@ -140,7 +243,17 @@ export default function EconomicCalendar() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Economic Calendar</h1>
-        <p className="text-muted-foreground text-sm">יומן כלכלי — אירועים ונתונים חשובים לשוק</p>
+        <p className="text-muted-foreground text-sm">יומן כלכלי — אירועים, חדשות ונתונים חשובים לשוק</p>
+      </div>
+
+      {/* Walter Bloomberg Feed */}
+      <div className="rounded-xl border border-border bg-card p-4">
+        <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-[hsl(var(--chart-blue))] animate-pulse" />
+          Walter Bloomberg — חדשות בזמן אמת
+        </h2>
+        <p className="text-xs text-muted-foreground mb-3">@DeItaone — Breaking market news & headlines</p>
+        <div ref={wbRef} className="min-h-[200px] rounded-lg overflow-hidden" />
       </div>
 
       {/* TradingView Widget */}
@@ -151,17 +264,47 @@ export default function EconomicCalendar() {
 
       {/* Personal Events */}
       <div className="rounded-xl border border-border bg-card p-6 space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <h2 className="text-lg font-semibold">האירועים שלי</h2>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Button variant="ghost" size="icon" onClick={() => setWeekStart(subWeeks(weekStart, 1))}><ChevronLeft className="h-4 w-4" /></Button>
             <span className="text-sm font-mono">{format(weekStart, 'MMM dd')} – {format(weekEnd, 'MMM dd')}</span>
             <Button variant="ghost" size="icon" onClick={() => setWeekStart(addWeeks(weekStart, 1))}><ChevronRight className="h-4 w-4" /></Button>
+            <Button size="sm" variant="outline" onClick={fetchAiEconomicEvents} disabled={fetchingNews}>
+              {fetchingNews ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Download className="h-4 w-4 mr-1" />}
+              ייבוא אוטומטי
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => setShowTemplates(!showTemplates)}>
+              תבניות
+            </Button>
             <Button size="sm" onClick={() => setShowForm(!showForm)}>
               <Plus className="h-4 w-4 mr-1" /> הוסף אירוע
             </Button>
           </div>
         </div>
+
+        {/* Templates */}
+        {showTemplates && (
+          <div className="rounded-lg border border-border bg-secondary/50 p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold">הוסף אירוע מתבנית — בחר תאריך:</p>
+              <Input type="date" value={form.event_date} onChange={e => setForm({ ...form, event_date: e.target.value })} className="w-40 bg-background" />
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+              {KEY_EVENTS_TEMPLATE.map((tmpl, i) => (
+                <button
+                  key={i}
+                  onClick={() => addFromTemplate(tmpl)}
+                  className="text-xs text-right p-2 rounded-lg border border-border bg-background hover:bg-accent transition-colors flex items-center gap-2"
+                >
+                  <span className={`w-2 h-2 rounded-full flex-shrink-0 ${tmpl.impact === 'high' ? 'bg-[hsl(var(--chart-red))]' : 'bg-orange-500'}`} />
+                  <span className="flex-1">{tmpl.title}</span>
+                  <span className="text-muted-foreground">{tmpl.currency}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Add Event Form */}
         {showForm && (
