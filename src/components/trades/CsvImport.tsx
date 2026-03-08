@@ -161,8 +161,9 @@ function parseRithmic(text: string, userId: string) {
 
   const trades: any[] = [];
 
-  bySymbolAndDay.forEach((orders, key) => {
-    const symbol = key.split('|')[0];
+  byKey.forEach((orders, key) => {
+    const parts = key.split('|');
+    const symbol = parts[1];
     const buys: FilledOrder[] = [];
     const sells: FilledOrder[] = [];
 
