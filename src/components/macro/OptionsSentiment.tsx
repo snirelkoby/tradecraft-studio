@@ -143,6 +143,102 @@ export function OptionsSentiment() {
         className="bg-secondary resize-none"
         rows={3}
       />
+
+      {/* Sentiment History Chart */}
+      <SentimentHistoryChart />
+    </div>
+  );
+}
+
+const SENTIMENT_NUMERIC: Record<string, number> = {
+  very_bearish: -2,
+  bearish: -1,
+  neutral: 0,
+  bullish: 1,
+  very_bullish: 2,
+};
+
+const SENTIMENT_LABEL_MAP: Record<number, string> = {
+  [-2]: 'V.Bear',
+  [-1]: 'Bear',
+  [0]: 'Neutral',
+  [1]: 'Bull',
+  [2]: 'V.Bull',
+};
+
+function SentimentHistoryChart() {
+  const { user } = useAuth();
+  const [history, setHistory] = useState<{ date: string; value: number; label: string; notes: string | null }[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from('options_sentiment')
+      .select('week_start, sentiment, notes')
+      .eq('user_id', user.id)
+      .order('week_start', { ascending: true })
+      .then(({ data }) => {
+        if (data) {
+          setHistory(
+            (data as any[]).map((d) => ({
+              date: d.week_start,
+              value: SENTIMENT_NUMERIC[d.sentiment] ?? 0,
+              label: d.sentiment?.replace('_', ' ').toUpperCase() || 'NEUTRAL',
+              notes: d.notes,
+            }))
+          );
+        }
+        setLoading(false);
+      });
+  }, [user]);
+
+  if (loading) return null;
+  if (history.length < 2) {
+    return (
+      <p className="text-xs text-muted-foreground text-center py-2">
+        שמור לפחות 2 שבועות כדי לראות גרף היסטורי
+      </p>
+    );
+  }
+
+  const formatDate = (date: string) => {
+    const d = new Date(date);
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return `${months[d.getMonth()]} ${d.getDate()}`;
+  };
+
+  return (
+    <div className="space-y-2 pt-2 border-t border-border">
+      <h4 className="text-sm font-semibold">Sentiment History — היסטוריה</h4>
+      <ResponsiveContainer width="100%" height={180}>
+        <AreaChart data={history}>
+          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+          <XAxis dataKey="date" tickFormatter={formatDate} tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
+          <YAxis
+            domain={[-2.5, 2.5]}
+            ticks={[-2, -1, 0, 1, 2]}
+            tickFormatter={(v) => SENTIMENT_LABEL_MAP[v] || ''}
+            tick={{ fontSize: 9 }}
+            stroke="hsl(var(--muted-foreground))"
+            width={50}
+          />
+          <Tooltip
+            formatter={(value: number) => [SENTIMENT_LABEL_MAP[value] || value, 'Sentiment']}
+            labelFormatter={formatDate}
+            contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }}
+          />
+          <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" />
+          <Area
+            type="stepAfter"
+            dataKey="value"
+            stroke="hsl(var(--primary))"
+            fill="hsl(var(--primary) / 0.15)"
+            strokeWidth={2}
+            dot={{ r: 4, fill: 'hsl(var(--primary))' }}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
     </div>
   );
 }
