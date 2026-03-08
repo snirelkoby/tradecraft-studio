@@ -13,7 +13,9 @@ import { format, parseISO, isAfter, isBefore } from 'date-fns';
 import { TradeForm } from '@/components/trades/TradeForm';
 import { TradeDetail } from '@/components/trades/TradeDetail';
 import { CsvImport } from '@/components/trades/CsvImport';
+import { TagPerformance } from '@/components/trades/TagPerformance';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { Database } from '@/integrations/supabase/types';
 
 type Trade = Database['public']['Tables']['trades']['Row'];
