@@ -61,7 +61,7 @@ const CandleBarShape = (props: any) => {
   return (
     <g>
       {/* Wick line */}
-      <line x1={centerX} y1={wickTopY} x2={centerX} y2={wickBottomY} stroke={color} strokeWidth={1.5} />
+      <line x1={centerX} y1={wickTopY} x2={centerX} y2={wickBottomY} stroke="hsl(var(--muted-foreground))" strokeWidth={1.5} />
       {/* Candle body */}
       <rect x={x} y={barTop} width={width} height={Math.max(absHeight, 2)} fill={color} rx={2} />
     </g>
