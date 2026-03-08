@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useTrades } from '@/hooks/useTrades';
-import { useAccounts } from '@/hooks/useAccounts';
+import { useSelectedAccount } from '@/hooks/useSelectedAccount';
 import { format, parseISO, isAfter, isBefore } from 'date-fns';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
