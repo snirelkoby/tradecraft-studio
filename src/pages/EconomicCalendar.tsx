@@ -103,7 +103,7 @@ export default function EconomicCalendar() {
       height: '100%',
       locale: 'en',
       importanceFilter: '-1,0,1',
-      countryFilter: 'us,eu,gb,jp,cn',
+      countryFilter: 'us',
     });
     container.appendChild(script);
     tvRef.current.appendChild(container);
