@@ -20,10 +20,12 @@ type Trade = Database['public']['Tables']['trades']['Row'];
 
 export default function Trades() {
   const { data: trades, isLoading } = useTrades();
+  const { selectedAccount } = useSelectedAccount();
   const deleteTrade = useDeleteTrade();
   const bulkDelete = useBulkDeleteTrades();
   const deleteAll = useDeleteAllTrades();
   const [formOpen, setFormOpen] = useState(false);
+  const canAddTrade = selectedAccount !== 'all';
   const [selectedTrade, setSelectedTrade] = useState<Trade | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
