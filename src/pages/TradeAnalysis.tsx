@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import {
   ResponsiveContainer, ComposedChart, Bar, XAxis, YAxis,
   Tooltip, CartesianGrid, Cell, AreaChart, Area, BarChart, Line,
-  ReferenceLine, Customized
+  ReferenceLine
 } from 'recharts';
 import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
