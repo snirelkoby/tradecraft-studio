@@ -25,27 +25,18 @@ serve(async (req) => {
       const resp = await fetch(url);
       const html = await resp.text();
 
-      // Parse the table data from HTML
-      // The table structure: Non-Commercial Long, Short, Spreads | Commercial Long, Short | Total Long, Short | Non-Reportable Long, Short
-      // Row 1: Current positions
-      // Row 2 (Changes): Weekly changes
-
-      // Extract numbers from table rows using regex
-      const tableMatch = html.match(/<table[^>]*class="[^"]*table[^"]*"[^>]*>([\s\S]*?)<\/table>/i);
-      
       let ncLong = 0, ncShort = 0, ncLongChange = 0, ncShortChange = 0;
       let openInterest = 0;
       let reportDate = "";
 
-      // Try to get the date
-      const dateMatch = html.match(/AS OF:\s*(\d{4}-\d{2}-\d{2})/);
+      const dateMatch = html.match(/AS OF:\\s*(\d{4}-\d{2}-\d{2})/);
       if (dateMatch) reportDate = dateMatch[1];
 
-      // Get open interest
-      const oiMatch = html.match(/Open Interest:\s*([\d,]+)/);
+      const oiMatch = html.match(/Open Interest:\\s*([\d,]+)/);
       if (oiMatch) openInterest = parseNumber(oiMatch[1]);
 
-      // Parse table rows - find all td elements
+      const tableMatch = html.match(/<table[^>]*class="[^"]*table[^"]*"[^>]*>([\s\S]*?)<\/table>/i);
+
       if (tableMatch) {
         const tableHtml = tableMatch[1];
         const rows = tableHtml.match(/<tr[^>]*>([\s\S]*?)<\/tr>/gi) || [];
@@ -55,7 +46,6 @@ serve(async (req) => {
             c.replace(/<[^>]*>/g, "").trim()
           );
           
-          // Main data row (first row with enough numeric cells)
           if (cells.length >= 9 && !cells[0].includes("Changes") && !cells[0].includes("%") && !cells[0].includes("Traders")) {
             const nums = cells.filter(c => /^[\d,]+$/.test(c.replace(/\s/g, "")));
             if (nums.length >= 2) {
@@ -64,7 +54,6 @@ serve(async (req) => {
             }
           }
           
-          // Changes row
           if (cells.some(c => c.includes("+") || c.includes("-")) && cells.length >= 7) {
             const changeNums = cells.filter(c => /^[+-]?[\d,]+$/.test(c.replace(/\s/g, "")));
             if (changeNums.length >= 2) {
@@ -75,13 +64,10 @@ serve(async (req) => {
         }
       }
 
-      // Fallback: try regex on raw text for the known format
       if (ncLong === 0) {
-        // Tradingster has a specific pattern in the page source
         const allNums = html.match(/(?:<td[^>]*>)\s*([\d,]+)\s*(?:<\/td>)/g);
         if (allNums && allNums.length >= 10) {
           const cleaned = allNums.map(m => parseNumber(m.replace(/<[^>]*>/g, "").trim()));
-          // Non-commercial: Long, Short, Spreads are first 3 numbers after open interest
           if (cleaned.length >= 9) {
             ncLong = cleaned[0];
             ncShort = cleaned[1];
@@ -99,6 +85,42 @@ serve(async (req) => {
       const netPosition = ncLong - ncShort;
       const netChange = ncLongChange - ncShortChange;
 
+      // Improved sentiment logic:
+      // - If net positive AND weekly shift is bullish/unchanged → bullish
+      // - If net positive BUT weekly shift is bearish → weakening_bullish
+      // - If net negative AND weekly shift is bearish/unchanged → bearish
+      // - If net negative BUT weekly shift is bullish → weakening_bearish
+      let sentiment: string;
+      let weeklyShift: string;
+
+      if (netChange > 0) {
+        weeklyShift = "more_bullish";
+      } else if (netChange < 0) {
+        weeklyShift = "more_bearish";
+      } else {
+        weeklyShift = "unchanged";
+      }
+
+      if (netPosition > 0) {
+        if (ncLongChange < 0 && ncShortChange > 0) {
+          sentiment = "weakening_bullish";
+        } else if (netChange < 0) {
+          sentiment = "weakening_bullish";
+        } else {
+          sentiment = "bullish";
+        }
+      } else if (netPosition < 0) {
+        if (ncLongChange > 0 && ncShortChange < 0) {
+          sentiment = "weakening_bearish";
+        } else if (netChange > 0) {
+          sentiment = "weakening_bearish";
+        } else {
+          sentiment = "bearish";
+        }
+      } else {
+        sentiment = "neutral";
+      }
+
       results[symbol] = {
         name: cfg.name,
         reportDate,
@@ -111,8 +133,8 @@ serve(async (req) => {
           shortChange: ncShortChange,
           netChange,
         },
-        sentiment: netPosition > 0 ? "bullish" : netPosition < 0 ? "bearish" : "neutral",
-        weeklyShift: netChange > 0 ? "more_bullish" : netChange < 0 ? "more_bearish" : "unchanged",
+        sentiment,
+        weeklyShift,
       };
     }
 

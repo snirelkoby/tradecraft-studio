@@ -3,6 +3,7 @@ import { AppSidebar } from '@/components/AppSidebar';
 import { Outlet } from 'react-router-dom';
 import { useAccounts } from '@/hooks/useAccounts';
 import { useTrades } from '@/hooks/useTrades';
+import { useAllAccountTransactions } from '@/hooks/useAccountTransactions';
 import { useSelectedAccount } from '@/hooks/useSelectedAccount';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Wallet } from 'lucide-react';
@@ -10,28 +11,32 @@ import { Wallet } from 'lucide-react';
 export function Layout() {
   const { data: accounts } = useAccounts();
   const { data: trades } = useTrades();
+  const { data: allTransactions } = useAllAccountTransactions();
   const { selectedAccount, setSelectedAccount } = useSelectedAccount();
 
-  // Calculate total P&L from ALL closed trades
   const allClosedPnl = (trades ?? [])
     .filter(t => t.status === 'closed' && t.pnl !== null)
     .reduce((sum, t) => sum + (t.pnl ?? 0), 0);
 
-  // Calculate total starting balance from all accounts
   const totalStartingBalance = (accounts ?? []).reduce((sum, a) => sum + (a.starting_balance ?? 0), 0);
 
-  // Get balance for a specific account
+  const totalTxBalance = (allTransactions ?? [])
+    .reduce((sum, tx) => sum + (tx.type === 'deposit' ? tx.amount : -tx.amount), 0);
+
   const getAccountBalance = (accountName: string) => {
     const account = accounts?.find(a => a.name === accountName);
-    const startingBalance = account?.starting_balance ?? 0;
+    if (!account) return 0;
+    const startingBalance = account.starting_balance ?? 0;
     const pnl = (trades ?? [])
       .filter(t => t.account_name === accountName && t.status === 'closed' && t.pnl !== null)
       .reduce((sum, t) => sum + (t.pnl ?? 0), 0);
-    return startingBalance + pnl;
+    const txTotal = (allTransactions ?? [])
+      .filter(tx => tx.account_id === account.id)
+      .reduce((sum, tx) => sum + (tx.type === 'deposit' ? tx.amount : -tx.amount), 0);
+    return startingBalance + pnl + txTotal;
   };
 
-  // Total balance = starting balance + ALL trade P&L (including trades without matching accounts)
-  const totalBalance = totalStartingBalance + allClosedPnl;
+  const totalBalance = totalStartingBalance + allClosedPnl + totalTxBalance;
 
   return (
     <SidebarProvider>
