@@ -218,6 +218,7 @@ export type Database = {
       }
       checklist_items: {
         Row: {
+          blueprint_id: string | null
           created_at: string
           id: string
           is_active: boolean
@@ -226,6 +227,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          blueprint_id?: string | null
           created_at?: string
           id?: string
           is_active?: boolean
@@ -234,6 +236,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          blueprint_id?: string | null
           created_at?: string
           id?: string
           is_active?: boolean
@@ -241,7 +244,15 @@ export type Database = {
           sort_order?: number
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "checklist_items_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "blueprints"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       cot_history: {
         Row: {
