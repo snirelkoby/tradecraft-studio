@@ -75,7 +75,7 @@ export default function Install() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <Apple className="h-5 w-5" />
+            <TabletSmartphone className="h-5 w-5" />
             iPhone / iPad
           </CardTitle>
         </CardHeader>
