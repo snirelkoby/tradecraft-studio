@@ -107,26 +107,6 @@ export default function EconomicCalendar() {
     tvRef.current.appendChild(container);
   }, []);
 
-  // Walter Bloomberg Twitter Embed
-  useEffect(() => {
-    if (!wbRef.current) return;
-    wbRef.current.innerHTML = '';
-    
-    const anchor = document.createElement('a');
-    anchor.className = 'twitter-timeline';
-    anchor.setAttribute('data-theme', 'dark');
-    anchor.setAttribute('data-height', '600');
-    anchor.setAttribute('data-chrome', 'noheader nofooter noborders transparent');
-    anchor.href = 'https://twitter.com/DeItaone';
-    anchor.textContent = 'Tweets by Walter Bloomberg';
-    wbRef.current.appendChild(anchor);
-
-    const script = document.createElement('script');
-    script.src = 'https://platform.twitter.com/widgets.js';
-    script.async = true;
-    script.charset = 'utf-8';
-    wbRef.current.appendChild(script);
-  }, []);
 
   const loadEvents = async () => {
     setLoading(true);
