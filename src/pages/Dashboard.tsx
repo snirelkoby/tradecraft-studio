@@ -6,6 +6,7 @@ import { computeFullAnalytics } from '@/lib/analytics';
 import { HourlyPnlChart } from '@/components/dashboard/HourlyPnlChart';
 import { TradeCandlestickChart } from '@/components/dashboard/TradeCandlestickChart';
 import { DayOfWeekChart } from '@/components/dashboard/DayOfWeekChart';
+import { StreakAlerts } from '@/components/dashboard/StreakAlerts';
 import {
   Area, AreaChart, CartesianGrid, XAxis, YAxis, Tooltip,
   ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, LineChart, Line
@@ -231,95 +232,101 @@ export default function Dashboard() {
         )}
       </div>
 
-      {has('trade-candles') && (
-        <div className="rounded-xl border border-border bg-card p-5">
-          <h3 className="text-sm font-semibold mb-4 text-muted-foreground uppercase tracking-wider">Daily Trade Candles</h3>
-          <p className="text-xs text-muted-foreground mb-3">Each candle shows the day's P&L range: bar = close, dots = high (green) & low (red)</p>
-          <TradeCandlestickChart trades={trades ?? []} />
-        </div>
-      )}
+      {/* Streak Alerts */}
+      <StreakAlerts trades={trades ?? []} />
 
-      {has('hourly-pnl') && (
-        <div className="rounded-xl border border-border bg-card p-5">
-          <h3 className="text-sm font-semibold mb-4 text-muted-foreground uppercase tracking-wider">P&L by Hour</h3>
-          <HourlyPnlChart trades={trades ?? []} />
-        </div>
-      )}
+      {/* Narrower 2-col grid for secondary charts */}
+      <div className="grid lg:grid-cols-2 gap-6">
+        {has('trade-candles') && (
+          <div className="lg:col-span-2 rounded-xl border border-border bg-card p-5">
+            <h3 className="text-sm font-semibold mb-4 text-muted-foreground uppercase tracking-wider">Daily Trade Candles</h3>
+            <p className="text-xs text-muted-foreground mb-3">Each candle shows the day's P&L range: bar = close, dots = high (green) & low (red)</p>
+            <TradeCandlestickChart trades={trades ?? []} />
+          </div>
+        )}
 
-      {has('day-of-week') && (
-        <div className="rounded-xl border border-border bg-card p-5">
-          <h3 className="text-sm font-semibold mb-4 text-muted-foreground uppercase tracking-wider">P&L by Day of Week</h3>
-          <DayOfWeekChart trades={trades ?? []} />
-        </div>
-      )}
+        {has('hourly-pnl') && (
+          <div className="rounded-xl border border-border bg-card p-5">
+            <h3 className="text-sm font-semibold mb-4 text-muted-foreground uppercase tracking-wider">P&L by Hour</h3>
+            <HourlyPnlChart trades={trades ?? []} />
+          </div>
+        )}
 
-      {has('daily-bar') && (
-        <div className="rounded-xl border border-border bg-card p-5">
-          <h3 className="text-sm font-semibold mb-4 text-muted-foreground uppercase tracking-wider">Daily P&L</h3>
-          {dailyData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={dailyData}>
+        {has('day-of-week') && (
+          <div className="rounded-xl border border-border bg-card p-5">
+            <h3 className="text-sm font-semibold mb-4 text-muted-foreground uppercase tracking-wider">P&L by Day of Week</h3>
+            <DayOfWeekChart trades={trades ?? []} />
+          </div>
+        )}
+
+        {has('daily-bar') && (
+          <div className="rounded-xl border border-border bg-card p-5">
+            <h3 className="text-sm font-semibold mb-4 text-muted-foreground uppercase tracking-wider">Daily P&L</h3>
+            {dailyData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={dailyData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                  <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={(v) => `$${v}`} />
+                  <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`$${v.toFixed(2)}`, 'P&L']} />
+                  <Bar dataKey="pnl" radius={[4, 4, 0, 0]}>
+                    {dailyData.map((entry, i) => <Cell key={i} fill={entry.pnl >= 0 ? 'hsl(var(--chart-green))' : 'hsl(var(--chart-red))'} />)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            ) : <p className="text-muted-foreground text-sm text-center py-12">No data</p>}
+          </div>
+        )}
+
+        {has('by-strategy') && strategyData.length > 0 && (
+          <div className="rounded-xl border border-border bg-card p-5">
+            <h3 className="text-sm font-semibold mb-4 text-muted-foreground uppercase tracking-wider">P&L by Strategy</h3>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={strategyData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                <XAxis dataKey="strategy" stroke="hsl(var(--muted-foreground))" fontSize={11} />
                 <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={(v) => `$${v}`} />
                 <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`$${v.toFixed(2)}`, 'P&L']} />
                 <Bar dataKey="pnl" radius={[4, 4, 0, 0]}>
-                  {dailyData.map((entry, i) => <Cell key={i} fill={entry.pnl >= 0 ? 'hsl(var(--chart-green))' : 'hsl(var(--chart-red))'} />)}
+                  {strategyData.map((entry, i) => <Cell key={i} fill={entry.pnl >= 0 ? 'hsl(var(--chart-green))' : 'hsl(var(--chart-red))'} />)}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
-          ) : <p className="text-muted-foreground text-sm text-center py-12">No data</p>}
-        </div>
-      )}
+          </div>
+        )}
 
-      {has('equity-curve') && cumData.length > 0 && (
-        <div className="rounded-xl border border-border bg-card p-5">
-          <h3 className="text-sm font-semibold mb-4 text-muted-foreground uppercase tracking-wider">Equity Curve</h3>
-          <ResponsiveContainer width="100%" height={250}>
-            <LineChart data={cumData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={11} />
-              <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={(v) => `$${v}`} />
-              <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`$${v.toFixed(2)}`, 'Equity']} />
-              <Line type="monotone" dataKey="pnl" stroke="hsl(var(--chart-green))" strokeWidth={2} dot={false} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      )}
+        {has('by-symbol') && symbolData.length > 0 && (
+          <div className="rounded-xl border border-border bg-card p-5">
+            <h3 className="text-sm font-semibold mb-4 text-muted-foreground uppercase tracking-wider">P&L by Symbol (Top 10)</h3>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={symbolData} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={(v) => `$${v}`} />
+                <YAxis type="category" dataKey="symbol" stroke="hsl(var(--muted-foreground))" fontSize={11} width={60} />
+                <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`$${v.toFixed(2)}`, 'P&L']} />
+                <Bar dataKey="pnl" radius={[0, 4, 4, 0]}>
+                  {symbolData.map((entry, i) => <Cell key={i} fill={entry.pnl >= 0 ? 'hsl(var(--chart-green))' : 'hsl(var(--chart-red))'} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
 
-      {has('by-strategy') && strategyData.length > 0 && (
-        <div className="rounded-xl border border-border bg-card p-5">
-          <h3 className="text-sm font-semibold mb-4 text-muted-foreground uppercase tracking-wider">P&L by Strategy</h3>
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={strategyData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis dataKey="strategy" stroke="hsl(var(--muted-foreground))" fontSize={11} />
-              <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={(v) => `$${v}`} />
-              <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`$${v.toFixed(2)}`, 'P&L']} />
-              <Bar dataKey="pnl" radius={[4, 4, 0, 0]}>
-                {strategyData.map((entry, i) => <Cell key={i} fill={entry.pnl >= 0 ? 'hsl(var(--chart-green))' : 'hsl(var(--chart-red))'} />)}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      )}
-
-      {has('by-symbol') && symbolData.length > 0 && (
-        <div className="rounded-xl border border-border bg-card p-5">
-          <h3 className="text-sm font-semibold mb-4 text-muted-foreground uppercase tracking-wider">P&L by Symbol (Top 10)</h3>
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={symbolData} layout="vertical">
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={(v) => `$${v}`} />
-              <YAxis type="category" dataKey="symbol" stroke="hsl(var(--muted-foreground))" fontSize={11} width={60} />
-              <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`$${v.toFixed(2)}`, 'P&L']} />
-              <Bar dataKey="pnl" radius={[0, 4, 4, 0]}>
-                {symbolData.map((entry, i) => <Cell key={i} fill={entry.pnl >= 0 ? 'hsl(var(--chart-green))' : 'hsl(var(--chart-red))'} />)}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      )}
+        {has('equity-curve') && cumData.length > 0 && (
+          <div className="rounded-xl border border-border bg-card p-5">
+            <h3 className="text-sm font-semibold mb-4 text-muted-foreground uppercase tracking-wider">Equity Curve</h3>
+            <ResponsiveContainer width="100%" height={220}>
+              <LineChart data={cumData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={(v) => `$${v}`} />
+                <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`$${v.toFixed(2)}`, 'Equity']} />
+                <Line type="monotone" dataKey="pnl" stroke="hsl(var(--chart-green))" strokeWidth={2} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </div>
 
       {has('risk-metrics') && riskCat && (
         <div className="rounded-xl border border-border bg-card p-5">

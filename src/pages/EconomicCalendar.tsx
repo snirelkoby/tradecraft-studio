@@ -96,7 +96,7 @@ export default function EconomicCalendar() {
     script.type = 'text/javascript';
     script.innerHTML = JSON.stringify({
       colorTheme: 'dark',
-      isTransparent: true,
+      isTransparent: false,
       width: '100%',
       height: '100%',
       locale: 'en',
@@ -231,7 +231,7 @@ export default function EconomicCalendar() {
       {/* TradingView Widget */}
       <div className="rounded-xl border border-border bg-card p-4">
         <h2 className="text-lg font-semibold mb-3">Global Economic Events</h2>
-        <div ref={tvRef} className="min-h-[500px] rounded-lg overflow-hidden" />
+        <div ref={tvRef} className="min-h-[500px] rounded-lg overflow-hidden [&_iframe]:!bg-[#1e1e1e]" />
       </div>
 
       {/* Personal Events */}

@@ -402,10 +402,77 @@ export type Database = {
         }
         Relationships: []
       }
+      trade_mistakes: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          id: string
+          severity: string
+          trade_id: string | null
+          user_id: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          severity?: string
+          trade_id?: string | null
+          user_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          severity?: string
+          trade_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      trade_steps: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          screenshot_url: string | null
+          step_number: number
+          step_type: string
+          title: string
+          trade_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          screenshot_url?: string | null
+          step_number?: number
+          step_type?: string
+          title: string
+          trade_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          screenshot_url?: string | null
+          step_number?: number
+          step_type?: string
+          title?: string
+          trade_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       trades: {
         Row: {
           account_name: string | null
           asset_type: string | null
+          broker: string | null
           created_at: string
           direction: string
           entry_date: string
@@ -431,6 +498,7 @@ export type Database = {
         Insert: {
           account_name?: string | null
           asset_type?: string | null
+          broker?: string | null
           created_at?: string
           direction: string
           entry_date: string
@@ -456,6 +524,7 @@ export type Database = {
         Update: {
           account_name?: string | null
           asset_type?: string | null
+          broker?: string | null
           created_at?: string
           direction?: string
           entry_date?: string
