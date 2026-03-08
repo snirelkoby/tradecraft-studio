@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { Plus, Trash2, ChevronLeft, ChevronRight, Loader2, Download } from 'lucide-react';
 import { format, startOfWeek, addWeeks, subWeeks, addDays } from 'date-fns';
+import { WalterNewsFeed } from '@/components/WalterNewsFeed';
 
 interface EconomicEvent {
   id: string;
