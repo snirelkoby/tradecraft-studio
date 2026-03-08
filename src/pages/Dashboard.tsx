@@ -37,7 +37,15 @@ const DEFAULT_WIDGETS: WidgetId[] = ['kpi-main', 'kpi-secondary', 'cum-pnl', 'wi
 const STORAGE_KEY = 'dashboard-widgets';
 
 export default function Dashboard() {
-  const { data: trades, isLoading } = useTrades();
+  const { data: allTrades, isLoading } = useTrades();
+  const { selectedAccount } = useSelectedAccount();
+
+  const trades = useMemo(() => {
+    if (!allTrades) return undefined;
+    if (selectedAccount === 'all') return allTrades;
+    return allTrades.filter(t => t.account_name === selectedAccount);
+  }, [allTrades, selectedAccount]);
+
   const stats = useTradeStats(trades);
   const analytics = computeFullAnalytics(trades ?? []);
 
