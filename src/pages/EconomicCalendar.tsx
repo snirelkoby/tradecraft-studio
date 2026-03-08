@@ -28,7 +28,7 @@ const IMPACTS = [
   { value: 'low', label: '🟡 Low', color: 'bg-yellow-500' },
 ];
 
-const CURRENCIES = ['USD', 'EUR', 'GBP', 'JPY', 'CNY', 'AUD', 'CAD', 'CHF'];
+const CURRENCIES = ['USD'];
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
