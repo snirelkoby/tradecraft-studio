@@ -125,7 +125,9 @@ export default function Trades() {
           <CsvImport />
           <Dialog open={formOpen} onOpenChange={setFormOpen}>
             <DialogTrigger asChild>
-              <Button><Plus className="h-4 w-4 mr-2" />New Trade</Button>
+              <Button disabled={!canAddTrade} title={!canAddTrade ? 'Select a specific account first' : undefined}>
+                <Plus className="h-4 w-4 mr-2" />New Trade
+              </Button>
             </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-card border-border">
               <DialogHeader>
