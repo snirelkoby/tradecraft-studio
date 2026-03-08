@@ -177,7 +177,23 @@ export default function Dashboard() {
       <div className="grid lg:grid-cols-3 gap-6">
         {has('cum-pnl') && (
           <div className="lg:col-span-2 rounded-xl border border-border bg-card p-5">
-            <h3 className="text-sm font-semibold mb-4 text-muted-foreground uppercase tracking-wider">Cumulative P&L</h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Cumulative P&L</h3>
+              <div className="flex gap-1 bg-secondary rounded-lg p-0.5">
+                <button
+                  onClick={() => setCumMode('trade')}
+                  className={`text-xs px-3 py-1 rounded-md transition-colors ${cumMode === 'trade' ? 'bg-background text-foreground font-medium shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                  Per Trade
+                </button>
+                <button
+                  onClick={() => setCumMode('day')}
+                  className={`text-xs px-3 py-1 rounded-md transition-colors ${cumMode === 'day' ? 'bg-background text-foreground font-medium shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                  Per Day
+                </button>
+              </div>
+            </div>
             {cumData.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
                 <AreaChart data={cumData}>
@@ -188,7 +204,7 @@ export default function Dashboard() {
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                  <XAxis dataKey={cumMode === 'trade' ? 'label' : 'date'} stroke="hsl(var(--muted-foreground))" fontSize={11} />
                   <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={(v) => `$${v}`} />
                   <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`$${v.toFixed(2)}`, 'P&L']} />
                   <Area type="monotone" dataKey="pnl" stroke="hsl(var(--chart-blue))" strokeWidth={2} fill="url(#pnlGrad)" />
