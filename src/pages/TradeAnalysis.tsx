@@ -657,28 +657,6 @@ export default function TradeAnalysis() {
             {renderChart()}
           </div>
 
-          {/* AI Insights Panel */}
-          {showAi && (
-            <div className="rounded-xl border border-border bg-card p-5 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-primary" />
-                  <h3 className="font-semibold text-sm">AI Insights</h3>
-                </div>
-                <Button variant="ghost" size="sm" className="text-xs" onClick={() => setShowAi(false)}>סגור</Button>
-              </div>
-              {loadingAi ? (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground py-8 justify-center">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  מנתח את העסקאות שלך...
-                </div>
-              ) : (
-                <div className="prose prose-sm dark:prose-invert max-w-none text-sm">
-                  <ReactMarkdown>{aiInsights || ''}</ReactMarkdown>
-                </div>
-              )}
-            </div>
-          )}
         </div>
       </div>
     </div>
