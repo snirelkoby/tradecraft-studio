@@ -226,7 +226,40 @@ export default function TradeAnalysis() {
     return result;
   }, [closed]);
 
-  const candleData = mode === 'per-trade' ? perTradeCandles : dailyCandles;
+  // Monthly candle data
+  const monthlyCandles = useMemo(() => {
+    const monthMap = new Map<string, Trade[]>();
+    closed.forEach(t => {
+      const month = format(parseISO(t.entry_date), 'yyyy-MM');
+      if (!monthMap.has(month)) monthMap.set(month, []);
+      monthMap.get(month)!.push(t);
+    });
+
+    const result: any[] = [];
+    monthMap.forEach((monthTrades, month) => {
+      monthTrades.sort((a, b) => new Date(a.entry_date).getTime() - new Date(b.entry_date).getTime());
+      let running = 0, high = 0, low = 0;
+      monthTrades.forEach(t => {
+        running += t.pnl ?? 0;
+        if (running > high) high = running;
+        if (running < low) low = running;
+      });
+      result.push({
+        label: format(parseISO(month + '-01'), 'MMM yy'),
+        fullDate: format(parseISO(month + '-01'), 'MMMM yyyy'),
+        open: 0,
+        close: running,
+        wickHigh: high,
+        wickLow: low,
+        isProfit: running >= 0,
+        pnl: running,
+        trades: monthTrades.length,
+      });
+    });
+    return result;
+  }, [closed]);
+
+  const candleData = mode === 'per-trade' ? perTradeCandles : mode === 'daily' ? dailyCandles : monthlyCandles;
 
   const equityData = useMemo(() => {
     let cum = 0;
