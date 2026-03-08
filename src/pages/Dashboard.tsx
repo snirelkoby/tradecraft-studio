@@ -95,7 +95,7 @@ export default function Dashboard() {
       return { label: format(parseISO(date), 'MMM dd'), date: format(parseISO(date), 'MMM dd'), pnl: dayCum };
     });
 
-  const [cumMode, setCumMode] = useState<'trade' | 'day'>('trade');
+  const cumData = cumMode === 'trade' ? cumDataPerTrade : cumDataPerDay;
   const cumData = cumMode === 'trade' ? cumDataPerTrade : cumDataPerDay;
 
   const dailyMap = new Map<string, number>();
