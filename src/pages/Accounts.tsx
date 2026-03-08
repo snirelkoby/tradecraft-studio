@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { useAccounts, useAddAccount, useDeleteAccount, useUpdateAccount } from '@/hooks/useAccounts';
+import { useAllAccountTransactions, useAddTransaction } from '@/hooks/useAccountTransactions';
 import { useTrades } from '@/hooks/useTrades';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, Trash2, Wallet, Pencil } from 'lucide-react';
+import { Plus, Trash2, Wallet, Pencil, ArrowDownLeft, ArrowUpRight } from 'lucide-react';
 import { toast } from 'sonner';
+import { format, parseISO } from 'date-fns';
 
 const ACCOUNT_TYPES = [
   { value: 'day_trading', label: 'Day Trading' },
@@ -19,9 +21,11 @@ const ACCOUNT_TYPES = [
 export default function Accounts() {
   const { data: accounts, isLoading } = useAccounts();
   const { data: trades } = useTrades();
+  const { data: allTransactions } = useAllAccountTransactions();
   const addAccount = useAddAccount();
   const deleteAccount = useDeleteAccount();
   const updateAccount = useUpdateAccount();
+  const addTransaction = useAddTransaction();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [name, setName] = useState('');
@@ -34,6 +38,19 @@ export default function Accounts() {
   const [editName, setEditName] = useState('');
   const [editType, setEditType] = useState('');
   const [editBalance, setEditBalance] = useState('');
+
+  // Transaction state
+  const [txDialogOpen, setTxDialogOpen] = useState(false);
+  const [txAccountId, setTxAccountId] = useState('');
+  const [txAccountName, setTxAccountName] = useState('');
+  const [txType, setTxType] = useState<'deposit' | 'withdrawal'>('deposit');
+  const [txAmount, setTxAmount] = useState('');
+  const [txNote, setTxNote] = useState('');
+
+  // History state
+  const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
+  const [historyAccountId, setHistoryAccountId] = useState('');
+  const [historyAccountName, setHistoryAccountName] = useState('');
 
   const handleAdd = () => {
     if (!name.trim()) { toast.error('Enter account name'); return; }
@@ -71,6 +88,41 @@ export default function Accounts() {
     );
   };
 
+  const openTxDialog = (accId: string, accName: string, type: 'deposit' | 'withdrawal') => {
+    setTxAccountId(accId);
+    setTxAccountName(accName);
+    setTxType(type);
+    setTxAmount('');
+    setTxNote('');
+    setTxDialogOpen(true);
+  };
+
+  const handleTransaction = () => {
+    const amount = parseFloat(txAmount);
+    if (!amount || amount <= 0) { toast.error('הזן סכום תקין'); return; }
+    addTransaction.mutate(
+      { account_id: txAccountId, type: txType, amount, note: txNote || undefined },
+      {
+        onSuccess: () => {
+          toast.success(txType === 'deposit' ? 'הפקדה בוצעה' : 'משיכה בוצעה');
+          setTxDialogOpen(false);
+        },
+      }
+    );
+  };
+
+  const openHistory = (accId: string, accName: string) => {
+    setHistoryAccountId(accId);
+    setHistoryAccountName(accName);
+    setHistoryDialogOpen(true);
+  };
+
+  const getAccountTxTotal = (accountId: string) => {
+    return (allTransactions ?? [])
+      .filter(tx => tx.account_id === accountId)
+      .reduce((sum, tx) => sum + (tx.type === 'deposit' ? tx.amount : -tx.amount), 0);
+  };
+
   const getAccountPnl = (accountName: string) => {
     return (trades ?? [])
       .filter(t => t.account_name === accountName && t.status === 'closed' && t.pnl !== null)
@@ -80,6 +132,8 @@ export default function Accounts() {
   const getAccountTradeCount = (accountName: string) => {
     return (trades ?? []).filter(t => t.account_name === accountName).length;
   };
+
+  const accountHistory = (allTransactions ?? []).filter(tx => tx.account_id === historyAccountId);
 
   return (
     <div className="space-y-6">
@@ -145,6 +199,60 @@ export default function Accounts() {
         </DialogContent>
       </Dialog>
 
+      {/* Transaction Dialog */}
+      <Dialog open={txDialogOpen} onOpenChange={setTxDialogOpen}>
+        <DialogContent className="bg-card border-border max-w-md">
+          <DialogHeader>
+            <DialogTitle>{txType === 'deposit' ? 'הפקדה' : 'משיכה'} — {txAccountName}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs text-muted-foreground uppercase">סכום</label>
+              <Input type="number" value={txAmount} onChange={e => setTxAmount(e.target.value)} placeholder="1000" className="bg-secondary" />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground uppercase">הערה (אופציונלי)</label>
+              <Input value={txNote} onChange={e => setTxNote(e.target.value)} placeholder="Funding..." className="bg-secondary" />
+            </div>
+            <Button onClick={handleTransaction} className="w-full" disabled={addTransaction.isPending}>
+              {txType === 'deposit' ? 'הפקד' : 'משוך'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* History Dialog */}
+      <Dialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen}>
+        <DialogContent className="bg-card border-border max-w-lg">
+          <DialogHeader><DialogTitle>היסטוריית תנועות — {historyAccountName}</DialogTitle></DialogHeader>
+          {accountHistory.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">אין תנועות</p>
+          ) : (
+            <div className="max-h-[400px] overflow-auto space-y-2">
+              {accountHistory.map(tx => (
+                <div key={tx.id} className="flex items-center justify-between border-b border-border pb-2">
+                  <div className="flex items-center gap-2">
+                    {tx.type === 'deposit'
+                      ? <ArrowDownLeft className="h-4 w-4 text-chart-green" />
+                      : <ArrowUpRight className="h-4 w-4 text-chart-red" />}
+                    <div>
+                      <p className="text-sm font-medium">{tx.type === 'deposit' ? 'הפקדה' : 'משיכה'}</p>
+                      {tx.note && <p className="text-xs text-muted-foreground">{tx.note}</p>}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className={`font-mono text-sm font-bold ${tx.type === 'deposit' ? 'text-chart-green' : 'text-chart-red'}`}>
+                      {tx.type === 'deposit' ? '+' : '-'}${tx.amount.toLocaleString()}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">{format(parseISO(tx.created_at), 'dd/MM/yy HH:mm')}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {isLoading ? (
         <p className="text-center py-12 text-muted-foreground">Loading...</p>
       ) : !accounts?.length ? (
@@ -156,7 +264,8 @@ export default function Accounts() {
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
           {accounts.map(acc => {
             const pnl = getAccountPnl(acc.name);
-            const currentBalance = acc.starting_balance + pnl;
+            const txTotal = getAccountTxTotal(acc.id);
+            const currentBalance = acc.starting_balance + pnl + txTotal;
             const tradeCount = getAccountTradeCount(acc.name);
             const typeLabel = ACCOUNT_TYPES.find(t => t.value === acc.account_type)?.label ?? acc.account_type;
 
@@ -168,13 +277,9 @@ export default function Accounts() {
                     <Button variant="ghost" size="icon" onClick={() => openEdit(acc)}>
                       <Pencil className="h-4 w-4 text-muted-foreground hover:text-foreground" />
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => {
-                        if (confirm('Delete this account?')) deleteAccount.mutate(acc.id);
-                      }}
-                    >
+                    <Button variant="ghost" size="icon" onClick={() => {
+                      if (confirm('Delete this account?')) deleteAccount.mutate(acc.id);
+                    }}>
                       <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
                     </Button>
                   </div>
@@ -199,9 +304,26 @@ export default function Accounts() {
                       </p>
                     </div>
                     <div>
+                      <p className="text-[10px] text-muted-foreground uppercase">Deposits/Withdrawals</p>
+                      <p className={`font-mono font-bold text-sm ${txTotal >= 0 ? 'text-chart-green' : 'text-chart-red'}`}>
+                        {txTotal >= 0 ? '+' : ''}${txTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                      </p>
+                    </div>
+                    <div>
                       <p className="text-[10px] text-muted-foreground uppercase">Trades</p>
                       <p className="font-mono font-bold text-sm">{tradeCount}</p>
                     </div>
+                  </div>
+                  <div className="flex gap-2 pt-1">
+                    <Button size="sm" variant="outline" className="flex-1 text-xs" onClick={() => openTxDialog(acc.id, acc.name, 'deposit')}>
+                      <ArrowDownLeft className="h-3 w-3 mr-1" />הפקדה
+                    </Button>
+                    <Button size="sm" variant="outline" className="flex-1 text-xs" onClick={() => openTxDialog(acc.id, acc.name, 'withdrawal')}>
+                      <ArrowUpRight className="h-3 w-3 mr-1" />משיכה
+                    </Button>
+                    <Button size="sm" variant="ghost" className="text-xs" onClick={() => openHistory(acc.id, acc.name)}>
+                      היסטוריה
+                    </Button>
                   </div>
                 </CardContent>
               </Card>

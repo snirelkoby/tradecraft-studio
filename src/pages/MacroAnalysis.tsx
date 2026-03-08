@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { KpiCard } from '@/components/KpiCard';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, TrendingUp, TrendingDown, Minus, RefreshCw } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { Loader2, TrendingUp, TrendingDown, Minus, RefreshCw, Save, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -55,11 +56,49 @@ const DIRECTIONS = [
 ];
 
 export default function MacroAnalysis() {
+  const { user } = useAuth();
   const [indicators, setIndicators] = useState<Indicator[]>(DEFAULT_INDICATORS);
   const [cotData, setCotData] = useState<Record<string, CotSymbolData> | null>(null);
   const [cotLoading, setCotLoading] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  // Load saved indicators on mount
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from('macro_saved_indicators')
+      .select('indicators')
+      .eq('user_id', user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.indicators) {
+          const saved = data.indicators as unknown as Indicator[];
+          // Merge saved values into default structure
+          setIndicators(DEFAULT_INDICATORS.map(def => {
+            const found = saved.find((s: Indicator) => s.name === def.name);
+            return found ? { ...def, value: found.value, direction: found.direction } : def;
+          }));
+        }
+      });
+  }, [user]);
+
+  const saveIndicators = async () => {
+    if (!user) return;
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from('macro_saved_indicators')
+        .upsert({ user_id: user.id, indicators: indicators as any, updated_at: new Date().toISOString() } as any, { onConflict: 'user_id' });
+      if (error) throw error;
+      toast.success('נתונים נשמרו');
+    } catch {
+      toast.error('שמירה נכשלה');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const updateIndicator = (index: number, field: 'value' | 'direction', val: string) => {
     setIndicators(prev => prev.map((ind, i) => i === index ? { ...ind, [field]: val } : ind));
@@ -143,9 +182,24 @@ export default function MacroAnalysis() {
   };
 
   const getSentimentIcon = (sentiment: string) => {
-    if (sentiment === 'bullish') return <TrendingUp className="h-5 w-5 text-green-500" />;
-    if (sentiment === 'bearish') return <TrendingDown className="h-5 w-5 text-red-500" />;
+    if (sentiment === 'bullish') return <TrendingUp className="h-5 w-5 text-chart-green" />;
+    if (sentiment === 'weakening_bullish') return <AlertTriangle className="h-5 w-5 text-yellow-500" />;
+    if (sentiment === 'bearish') return <TrendingDown className="h-5 w-5 text-chart-red" />;
+    if (sentiment === 'weakening_bearish') return <AlertTriangle className="h-5 w-5 text-yellow-500" />;
     return <Minus className="h-5 w-5 text-muted-foreground" />;
+  };
+
+  const getSentimentLabel = (sentiment: string) => {
+    if (sentiment === 'weakening_bullish') return 'WEAKENING BULLISH';
+    if (sentiment === 'weakening_bearish') return 'WEAKENING BEARISH';
+    return sentiment.toUpperCase();
+  };
+
+  const getSentimentColor = (sentiment: string) => {
+    if (sentiment === 'bullish') return 'text-chart-green';
+    if (sentiment === 'bearish') return 'text-chart-red';
+    if (sentiment.includes('weakening')) return 'text-yellow-500';
+    return 'text-muted-foreground';
   };
 
   const getShiftLabel = (shift: string) => {
@@ -182,8 +236,8 @@ export default function MacroAnalysis() {
                   </div>
                   <div className="flex items-center gap-2">
                     {getSentimentIcon(data.sentiment)}
-                    <span className={`text-sm font-medium ${data.sentiment === 'bullish' ? 'text-primary' : data.sentiment === 'bearish' ? 'text-destructive' : 'text-muted-foreground'}`}>
-                      {data.sentiment.toUpperCase()}
+                    <span className={`text-sm font-medium ${getSentimentColor(data.sentiment)}`}>
+                      {getSentimentLabel(data.sentiment)}
                     </span>
                   </div>
                 </div>
@@ -211,8 +265,16 @@ export default function MacroAnalysis() {
 
       {/* Economic Indicators */}
       <div className="rounded-xl border border-border bg-card p-6 space-y-4">
-        <h2 className="text-lg font-semibold">Economic Indicators — נתונים כלכליים</h2>
-        <p className="text-xs text-muted-foreground">הזן את הערכים האחרונים של הנתונים הכלכליים ובחר את הכיוון</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">Economic Indicators — נתונים כלכליים</h2>
+            <p className="text-xs text-muted-foreground">הזן את הערכים האחרונים של הנתונים הכלכליים ובחר את הכיוון</p>
+          </div>
+          <Button onClick={saveIndicators} disabled={saving} variant="secondary" size="sm">
+            {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Save className="h-4 w-4 mr-1" />}
+            שמור נתונים
+          </Button>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {indicators.map((ind, i) => (

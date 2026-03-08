@@ -14,6 +14,44 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_transactions: {
+        Row: {
+          account_id: string
+          amount: number
+          created_at: string
+          id: string
+          note: string | null
+          type: string
+          user_id: string
+        }
+        Insert: {
+          account_id: string
+          amount?: number
+          created_at?: string
+          id?: string
+          note?: string | null
+          type?: string
+          user_id: string
+        }
+        Update: {
+          account_id?: string
+          amount?: number
+          created_at?: string
+          id?: string
+          note?: string | null
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_transactions_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       accounts: {
         Row: {
           account_type: string
@@ -153,6 +191,27 @@ export type Database = {
           mood?: string | null
           post_market_notes?: string | null
           pre_market_notes?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      macro_saved_indicators: {
+        Row: {
+          id: string
+          indicators: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          indicators?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          indicators?: Json
           updated_at?: string
           user_id?: string
         }
