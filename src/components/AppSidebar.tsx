@@ -23,6 +23,7 @@ const navItems = [
   { title: 'Ledger', url: '/ledger', icon: FileText },
   { title: 'Risk Engine', url: '/risk', icon: Calculator },
   { title: 'Calculators', url: '/calculators', icon: FlaskConical },
+  { title: 'Macro Analysis', url: '/macro', icon: Globe },
   { title: 'Settings', url: '/settings', icon: Settings },
 ];
 

@@ -1,1 +1,7 @@
 project_id = "xhgqozpkyspobqskqupg"
+
+[functions.cot-data]
+verify_jwt = false
+
+[functions.macro-analysis]
+verify_jwt = false
