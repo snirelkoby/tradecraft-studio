@@ -10,8 +10,8 @@ import { Upload } from 'lucide-react';
 
 const CSV_SOURCES = [
   { id: 'deepcharts', label: 'DeepCharts', description: 'Semicolon-separated CSV from DeepCharts' },
-  { id: 'rithmic', label: 'Rithmic (Original)', description: 'Order History CSV export from R|Trader Pro' },
-  { id: 'rithmic-simple', label: 'Rithmic (Simple)', description: 'CSV פשוט: Symbol, Direction, Quantity, Entry Date, Exit Date, Entry Price, Exit Price' },
+  { id: 'rithmic', label: 'Rithmic (Original)', description: 'Order History CSV export from R|Trader Pro (Completed Orders section)' },
+  { id: 'rithmic-simple', label: 'Rithmic (Simple)', description: 'CSV פשוט — עמודות: Symbol, Qty, Open Time, Close Time, Open Price, Close Price, PnL (אופציונלי)' },
 ] as const;
 
 type CsvSource = typeof CSV_SOURCES[number]['id'];
