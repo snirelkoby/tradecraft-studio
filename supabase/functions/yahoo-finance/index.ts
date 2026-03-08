@@ -47,17 +47,23 @@ function getYahooSymbol(symbol: string): string[] {
 }
 
 async function fetchYahooData(symbol: string, startDate: string, endDate: string): Promise<{ high: number; low: number } | null> {
-  const period1 = Math.floor(new Date(startDate).getTime() / 1000);
-  const endMs = endDate
-    ? new Date(endDate).getTime() + 86400000
-    : new Date(startDate).getTime() + 86400000;
-  const period2 = Math.floor(endMs / 1000);
+  const startMs = new Date(startDate).getTime();
+  const endMs = endDate ? new Date(endDate).getTime() : startMs;
+  const period1 = Math.floor(startMs / 1000);
+  // Add buffer
+  const period2 = Math.floor((endMs + 86400000) / 1000);
+  
+  // Determine interval: if same day, use 5m for more precise intraday data
+  const sameDay = new Date(startDate).toDateString() === new Date(endDate || startDate).toDateString();
+  const daysDiff = Math.ceil((endMs - startMs) / 86400000);
+  // Yahoo limits: 5m data available for last ~60 days, 1h for ~730 days
+  const interval = sameDay ? '5m' : daysDiff <= 5 ? '15m' : '1d';
 
   const tickers = getYahooSymbol(symbol);
 
   for (const ticker of tickers) {
     try {
-      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?period1=${period1}&period2=${period2}&interval=1d`;
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?period1=${period1}&period2=${period2}&interval=${interval}`;
 
       const resp = await fetch(url, {
         headers: { "User-Agent": "Mozilla/5.0" },
@@ -66,12 +72,35 @@ async function fetchYahooData(symbol: string, startDate: string, endDate: string
       if (!resp.ok) continue;
 
       const data = await resp.json();
-      const quotes = data?.chart?.result?.[0]?.indicators?.quote?.[0];
+      const result = data?.chart?.result?.[0];
+      const quotes = result?.indicators?.quote?.[0];
+      const timestamps = result?.timestamp;
 
       if (!quotes || !quotes.high || !quotes.low) continue;
 
-      const highs = quotes.high.filter((v: number | null) => v !== null) as number[];
-      const lows = quotes.low.filter((v: number | null) => v !== null) as number[];
+      // If using intraday data, filter to only the timestamps within the trade period
+      let highs: number[] = [];
+      let lows: number[] = [];
+      
+      if (timestamps && interval !== '1d') {
+        const tradeStart = period1;
+        const tradeEnd = Math.floor(endMs / 1000) + 3600; // 1h buffer after exit
+        
+        for (let i = 0; i < timestamps.length; i++) {
+          if (timestamps[i] >= tradeStart && timestamps[i] <= tradeEnd) {
+            if (quotes.high[i] != null) highs.push(quotes.high[i]);
+            if (quotes.low[i] != null) lows.push(quotes.low[i]);
+          }
+        }
+      }
+      
+      // Fallback to all data if no filtered results
+      if (highs.length === 0) {
+        highs = quotes.high.filter((v: number | null) => v !== null) as number[];
+      }
+      if (lows.length === 0) {
+        lows = quotes.low.filter((v: number | null) => v !== null) as number[];
+      }
 
       if (highs.length === 0 || lows.length === 0) continue;
 
