@@ -58,7 +58,7 @@ export default function TimeInTrade() {
     return { points, bucketStats, avgDuration, winAvgDuration, lossAvgDuration };
   }, [trades]);
 
-  const fmtHours = (h: number) => h < 1 ? `${(h * 60).toFixed(0)}m` : h < 24 ? `${h.toFixed(1)}h` : `${(h / 24).toFixed(1)}d`;
+  const fmtMins = (m: number) => m < 60 ? `${m.toFixed(0)}m` : m < 1440 ? `${(m / 60).toFixed(1)}h` : `${(m / 1440).toFixed(1)}d`;
 
   if (!analysis) {
     return (
