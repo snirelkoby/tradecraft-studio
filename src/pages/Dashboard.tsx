@@ -56,6 +56,8 @@ export default function Dashboard() {
     } catch { return DEFAULT_WIDGETS; }
   });
 
+  const [cumMode, setCumMode] = useState<'trade' | 'day'>('trade');
+
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(activeWidgets));
   }, [activeWidgets]);
