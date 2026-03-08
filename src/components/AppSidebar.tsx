@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   BarChart3, BookOpen, Calendar, FileText, PenTool,
   Calculator, Settings, LogOut, FlaskConical, Wallet, CandlestickChart, Sparkles, Globe, CalendarClock,
