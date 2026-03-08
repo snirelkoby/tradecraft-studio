@@ -70,12 +70,11 @@ const CandleBarShape = (props: any) => {
 
 export default function TradeAnalysis() {
   const { data: trades, isLoading } = useTrades();
-  const { data: accounts } = useAccounts();
+  const { selectedAccount } = useSelectedAccount();
   const [activeView, setActiveView] = useState<ViewId>('trade-candles');
   const [mode, setMode] = useState<'per-trade' | 'daily' | 'monthly'>('per-trade');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [selectedAccount, setSelectedAccount] = useState<string>('all');
   const [yahooData, setYahooData] = useState<Record<string, YahooResult | null>>({});
   const [loadingYahoo, setLoadingYahoo] = useState(false);
 
