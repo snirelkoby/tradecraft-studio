@@ -160,6 +160,48 @@ export type Database = {
         }
         Relationships: []
       }
+      cot_history: {
+        Row: {
+          created_at: string
+          id: string
+          nc_long: number
+          nc_long_change: number
+          nc_net: number
+          nc_short: number
+          nc_short_change: number
+          open_interest: number
+          report_date: string
+          symbol: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          nc_long?: number
+          nc_long_change?: number
+          nc_net?: number
+          nc_short?: number
+          nc_short_change?: number
+          open_interest?: number
+          report_date: string
+          symbol: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          nc_long?: number
+          nc_long_change?: number
+          nc_net?: number
+          nc_short?: number
+          nc_short_change?: number
+          open_interest?: number
+          report_date?: string
+          symbol?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       journal_entries: {
         Row: {
           created_at: string
