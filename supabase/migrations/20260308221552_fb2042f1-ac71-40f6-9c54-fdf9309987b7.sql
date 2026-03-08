@@ -1,0 +1,1 @@
+ALTER TABLE public.checklist_items ADD COLUMN blueprint_id uuid REFERENCES public.blueprints(id) ON DELETE CASCADE DEFAULT NULL;
