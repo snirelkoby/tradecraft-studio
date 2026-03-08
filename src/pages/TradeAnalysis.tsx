@@ -124,11 +124,8 @@ export default function TradeAnalysis() {
   const [mode, setMode] = useState<'per-trade' | 'daily' | 'monthly'>('per-trade');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [yahooData, setYahooData] = useState<Record<string, YahooResult | null>>({});
   const [loadingYahoo, setLoadingYahoo] = useState(false);
-  const [aiInsights, setAiInsights] = useState<string | null>(null);
-  const [loadingAi, setLoadingAi] = useState(false);
-  const [showAi, setShowAi] = useState(false);
+  const navigate = useNavigate();
 
   const closed = useMemo(() => {
     return (trades ?? [])
