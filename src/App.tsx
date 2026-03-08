@@ -9,6 +9,7 @@ import { Layout } from "@/components/Layout";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Trades from "./pages/Trades";
+import TradeAnalysis from "./pages/TradeAnalysis";
 import CalendarView from "./pages/CalendarView";
 import Blueprints from "./pages/Blueprints";
 import Ledger from "./pages/Ledger";
@@ -47,7 +48,8 @@ const App = () => (
               <Route path="/auth" element={<AuthRoute />} />
               <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
                 <Route path="/" element={<Dashboard />} />
-                <Route path="/trades" element={<Trades />} />
+              <Route path="/trades" element={<Trades />} />
+              <Route path="/analysis" element={<TradeAnalysis />} />
                 <Route path="/calendar" element={<CalendarView />} />
                 <Route path="/blueprints" element={<Blueprints />} />
                 <Route path="/journal" element={<Journal />} />
