@@ -116,11 +116,22 @@
   }
   body {
     @apply bg-background text-foreground font-sans;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Heebo', 'Inter', sans-serif;
   }
   .font-mono {
     font-family: 'JetBrains Mono', monospace;
   }
+}
+
+/* RTL text direction for Hebrew */
+p, span, label, h1, h2, h3, h4, h5, h6, li, td, th, dt, dd, figcaption, blockquote, .rtl-text {
+  direction: rtl;
+  text-align: right;
+}
+
+/* Keep inputs, buttons, and interactive elements LTR layout */
+input, textarea, select, button, a, nav {
+  direction: ltr;
 }
 
 /* Custom scrollbar */
@@ -137,30 +148,4 @@
 }
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--muted-foreground));
-}
-
-/* KPI card glow effect */
-.kpi-glow-green {
-  box-shadow: 0 0 20px -5px hsl(var(--chart-green) / 0.2);
-  border-color: hsl(var(--chart-green) / 0.3);
-}
-.kpi-glow-red {
-  box-shadow: 0 0 20px -5px hsl(var(--chart-red) / 0.2);
-  border-color: hsl(var(--chart-red) / 0.3);
-}
-.kpi-glow-blue {
-  box-shadow: 0 0 20px -5px hsl(var(--chart-blue) / 0.2);
-  border-color: hsl(var(--chart-blue) / 0.3);
-}
-
-/* RTL support - keep charts and numbers LTR */
-.recharts-wrapper, 
-.recharts-surface,
-[dir="rtl"] input[type="number"],
-[dir="rtl"] input[type="text"] {
-  direction: ltr;
-}
-
-[dir="rtl"] .recharts-wrapper {
-  direction: ltr;
 }
