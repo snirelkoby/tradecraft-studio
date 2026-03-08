@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useTrades, useTradeStats } from '@/hooks/useTrades';
+import { useSelectedAccount } from '@/hooks/useSelectedAccount';
 import { KpiCard } from '@/components/KpiCard';
 import { computeFullAnalytics } from '@/lib/analytics';
 import { HourlyPnlChart } from '@/components/dashboard/HourlyPnlChart';
