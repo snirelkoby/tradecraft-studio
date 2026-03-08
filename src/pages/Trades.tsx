@@ -178,10 +178,15 @@ export default function Trades() {
               {strategies.map(s => <SelectItem key={s!} value={s!}>{s}</SelectItem>)}
             </SelectContent>
           </Select>
+          <Select value={filterTag} onValueChange={setFilterTag}>
+            <SelectTrigger className="bg-secondary text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Tags</SelectItem>
+              {allTags.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+            </SelectContent>
+          </Select>
           <Input type="date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} className="bg-secondary text-xs" placeholder="From" />
           <Input type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} className="bg-secondary text-xs" placeholder="To" />
-        </div>
-      </div>
 
       <div className="rounded-xl border border-border bg-card overflow-hidden">
         {isLoading ? (
