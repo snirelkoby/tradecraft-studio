@@ -85,6 +85,7 @@ export default function Trades() {
 
   return (
     <div className="space-y-6">
+      <Tabs defaultValue="journal">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Trade Journal</h1>
