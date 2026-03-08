@@ -531,6 +531,72 @@ export type Database = {
         }
         Relationships: []
       }
+      rule_violations: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          severity: string
+          trade_id: string | null
+          user_id: string
+          violation_type: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          severity?: string
+          trade_id?: string | null
+          user_id: string
+          violation_type?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          severity?: string
+          trade_id?: string | null
+          user_id?: string
+          violation_type?: string
+        }
+        Relationships: []
+      }
+      session_plans: {
+        Row: {
+          bias: string | null
+          created_at: string
+          date: string
+          id: string
+          key_levels: string | null
+          notes: string | null
+          updated_at: string
+          user_id: string
+          watchlist: string | null
+        }
+        Insert: {
+          bias?: string | null
+          created_at?: string
+          date?: string
+          id?: string
+          key_levels?: string | null
+          notes?: string | null
+          updated_at?: string
+          user_id: string
+          watchlist?: string | null
+        }
+        Update: {
+          bias?: string | null
+          created_at?: string
+          date?: string
+          id?: string
+          key_levels?: string | null
+          notes?: string | null
+          updated_at?: string
+          user_id?: string
+          watchlist?: string | null
+        }
+        Relationships: []
+      }
       trade_mistakes: {
         Row: {
           category: string
