@@ -165,4 +165,6 @@ const Install = forwardRef<HTMLDivElement>(function Install(_props, _ref) {
       </Card>
     </div>
   );
-}
+});
+
+export default Install;
