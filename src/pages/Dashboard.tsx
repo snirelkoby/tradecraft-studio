@@ -170,6 +170,8 @@ export default function Dashboard() {
         </div>
       )}
 
+      {has('quick-stats') && <QuickStatsWidget trades={trades} />}
+
       {has('kpi-secondary') && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <KpiCard title="Avg Win" value={`$${stats.avgWin.toFixed(2)}`} variant="green" />
