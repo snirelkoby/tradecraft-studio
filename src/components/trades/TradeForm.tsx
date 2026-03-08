@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAddTrade } from '@/hooks/useTrades';
+import { useAddTrade, calculateFuturesPnl } from '@/hooks/useTrades';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -31,6 +31,8 @@ export function TradeForm({ onSuccess }: TradeFormProps) {
     notes: '',
   });
 
+  const isFutures = form.asset_type === 'Futures';
+
   const getSymbolOptions = () => {
     switch (form.asset_type) {
       case 'Futures': return FUTURES_CONFIG.map(f => ({ value: f.symbol, label: `${f.symbol} — ${f.name}` }));
@@ -43,11 +45,13 @@ export function TradeForm({ onSuccess }: TradeFormProps) {
   const symbolOptions = getSymbolOptions();
   const isManualSymbol = form.asset_type === 'Stocks';
 
+  const selectedFuture = isFutures ? FUTURES_CONFIG.find(f => f.symbol === form.symbol) : null;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const entryPrice = parseFloat(form.entry_price);
     const exitPrice = form.exit_price ? parseFloat(form.exit_price) : null;
-    const qty = parseFloat(form.quantity) || 1;
+    const qty = isFutures ? Math.round(parseFloat(form.quantity) || 1) : (parseFloat(form.quantity) || 1);
     const fees = parseFloat(form.fees) || 0;
 
     let pnl: number | null = null;
@@ -55,11 +59,17 @@ export function TradeForm({ onSuccess }: TradeFormProps) {
     const status = exitPrice ? 'closed' : 'open';
 
     if (exitPrice) {
-      const raw = form.direction === 'long'
-        ? (exitPrice - entryPrice) * qty
-        : (entryPrice - exitPrice) * qty;
-      pnl = raw - fees;
-      pnlPercent = ((exitPrice - entryPrice) / entryPrice) * 100 * (form.direction === 'short' ? -1 : 1);
+      if (isFutures) {
+        const result = calculateFuturesPnl(form.symbol, form.direction, entryPrice, exitPrice, qty, fees);
+        pnl = result.pnl;
+        pnlPercent = result.pnlPercent;
+      } else {
+        const raw = form.direction === 'long'
+          ? (exitPrice - entryPrice) * qty
+          : (entryPrice - exitPrice) * qty;
+        pnl = raw - fees;
+        pnlPercent = ((exitPrice - entryPrice) / entryPrice) * 100 * (form.direction === 'short' ? -1 : 1);
+      }
     }
 
     try {
@@ -133,6 +143,29 @@ export function TradeForm({ onSuccess }: TradeFormProps) {
             </SelectContent>
           </Select>
         </div>
+
+        {/* Show futures info */}
+        {selectedFuture && (
+          <div className="col-span-2 rounded-lg bg-primary/10 border border-primary/20 p-3 text-xs">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Contract:</span>
+              <span className="font-bold">{selectedFuture.name}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Tick Size:</span>
+              <span className="font-mono">{selectedFuture.tickSize}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Tick Value:</span>
+              <span className="font-mono">${selectedFuture.tickValue}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Exchange:</span>
+              <span>{selectedFuture.exchange}</span>
+            </div>
+          </div>
+        )}
+
         <div>
           <label className="text-xs text-muted-foreground uppercase mb-1 block">Entry Date</label>
           <Input type="date" value={form.entry_date} onChange={e => setForm({ ...form, entry_date: e.target.value })} required className="bg-secondary" />
@@ -158,8 +191,20 @@ export function TradeForm({ onSuccess }: TradeFormProps) {
           <Input type="number" step="any" value={form.take_profit} onChange={e => setForm({ ...form, take_profit: e.target.value })} className="bg-secondary" />
         </div>
         <div>
-          <label className="text-xs text-muted-foreground uppercase mb-1 block">Quantity</label>
-          <Input type="number" step="any" value={form.quantity} onChange={e => setForm({ ...form, quantity: e.target.value })} className="bg-secondary" />
+          <label className="text-xs text-muted-foreground uppercase mb-1 block">
+            {isFutures ? 'Contracts (whole number)' : 'Quantity'}
+          </label>
+          <Input
+            type="number"
+            step={isFutures ? '1' : 'any'}
+            min="1"
+            value={form.quantity}
+            onChange={e => {
+              const val = isFutures ? String(Math.round(parseFloat(e.target.value) || 1)) : e.target.value;
+              setForm({ ...form, quantity: val });
+            }}
+            className="bg-secondary"
+          />
         </div>
         <div>
           <label className="text-xs text-muted-foreground uppercase mb-1 block">Fees</label>
