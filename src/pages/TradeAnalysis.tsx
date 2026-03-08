@@ -29,46 +29,41 @@ type ViewId = typeof VIEWS[number]['id'];
 
 interface YahooResult { high: number; low: number; }
 
-// Renders wick lines using Customized component which provides access to chart internals
-const WickRenderer = (props: any) => {
-  // Customized passes: formattedGraphicalItems, xAxisMap, yAxisMap, offset, etc.
-  const { formattedGraphicalItems, yAxisMap } = props;
-  if (!formattedGraphicalItems || !yAxisMap) return null;
+// Custom Bar shape that renders candle body + wicks
+const CandleBarShape = (props: any) => {
+  const { x, y, width, height, payload } = props;
+  if (!payload) return null;
 
-  // Find the Bar component for 'close'
-  const barSeries = formattedGraphicalItems.find(
-    (item: any) => item?.item?.props?.dataKey === 'close'
-  );
-  if (!barSeries?.props?.points) return null;
+  const color = payload.isProfit ? 'hsl(var(--chart-green))' : 'hsl(var(--chart-purple, 262 83% 58%))';
+  const centerX = x + width / 2;
+  const absHeight = Math.abs(height);
+  const barTop = height >= 0 ? y : y + height;
 
-  const points = barSeries.props.points;
-  const yAxis = yAxisMap[0] || Object.values(yAxisMap)[0];
-  if (!yAxis?.scale) return null;
+  // If no wick data, render simple bar
+  if (payload.wickHigh == null || payload.wickLow == null || payload.close === 0) {
+    return (
+      <g>
+        <rect x={x} y={barTop} width={width} height={Math.max(absHeight, 2)} fill={color} rx={2} />
+      </g>
+    );
+  }
 
-  const scale = yAxis.scale;
-  const data = barSeries.props.data || props.data;
+  // Calculate wick positions proportionally
+  // The bar spans from 0-line to close-value in pixels
+  // pxPerDollar = absHeight / |close|
+  const pxPerDollar = absHeight / Math.abs(payload.close);
+  // zeroY is the pixel position of the $0 line
+  const zeroY = payload.close >= 0 ? barTop + absHeight : barTop;
+
+  const wickTopY = zeroY - Math.max(payload.wickHigh, 0) * pxPerDollar;
+  const wickBottomY = zeroY + Math.abs(Math.min(payload.wickLow, 0)) * pxPerDollar;
 
   return (
     <g>
-      {points.map((point: any, i: number) => {
-        // Access the original data for this point
-        const d = data?.[i]?.payload || data?.[i];
-        if (!d || d.wickHigh == null || d.wickLow == null) return null;
-
-        const centerX = point.x;
-        const yHigh = scale(d.wickHigh);
-        const yLow = scale(d.wickLow);
-        const color = d.isProfit ? 'hsl(var(--chart-green))' : 'hsl(var(--chart-purple, 262 83% 58%))';
-
-        return (
-          <line
-            key={i}
-            x1={centerX} y1={yHigh}
-            x2={centerX} y2={yLow}
-            stroke={color} strokeWidth={1.5}
-          />
-        );
-      })}
+      {/* Wick line */}
+      <line x1={centerX} y1={wickTopY} x2={centerX} y2={wickBottomY} stroke={color} strokeWidth={1.5} />
+      {/* Candle body */}
+      <rect x={x} y={barTop} width={width} height={Math.max(absHeight, 2)} fill={color} rx={2} />
     </g>
   );
 };
