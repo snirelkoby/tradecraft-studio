@@ -1,0 +1,1 @@
+ALTER TABLE public.cot_history ADD CONSTRAINT cot_history_user_symbol_date_unique UNIQUE (user_id, symbol, report_date);
