@@ -91,6 +91,10 @@ const App = () => (
                     <Route path="/mindset" element={<MindsetJournal />} />
                     <Route path="/monte-carlo" element={<MonteCarloPage />} />
                     <Route path="/achievements" element={<AchievementsPage />} />
+                    <Route path="/drawdown" element={<DrawdownAnalyzer />} />
+                    <Route path="/violations" element={<RuleViolations />} />
+                    <Route path="/session-plan" element={<SessionPlanner />} />
+                    <Route path="/ab-test" element={<AbStrategyTester />} />
                     <Route path="/weekly-review" element={<WeeklyReview />} />
                     <Route path="/journal" element={<Journal />} />
                     <Route path="/ledger" element={<Ledger />} />
