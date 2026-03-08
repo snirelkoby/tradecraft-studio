@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { Layout } from "@/components/Layout";
+import { AccountProvider } from "@/hooks/useSelectedAccount";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Trades from "./pages/Trades";
