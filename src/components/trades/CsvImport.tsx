@@ -348,6 +348,9 @@ export function CsvImport() {
         case 'rithmic':
           trades = parseRithmic(text, user.id);
           break;
+        case 'rithmic-simple':
+          trades = parseRithmicSimple(text, user.id);
+          break;
         default:
           throw new Error('Unknown source');
       }
