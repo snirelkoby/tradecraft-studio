@@ -32,6 +32,7 @@ const ALL_WIDGETS = [
   { id: 'hourly-pnl', label: 'P&L by Hour' },
   { id: 'trade-candles', label: 'Daily Candles (High/Low/Close)' },
   { id: 'day-of-week', label: 'P&L by Day of Week' },
+  { id: 'position-sizer', label: 'Quick Position Sizer' },
 ] as const;
 
 type WidgetId = typeof ALL_WIDGETS[number]['id'];
