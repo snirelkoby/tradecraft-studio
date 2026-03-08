@@ -86,7 +86,7 @@ export default function TimeInTrade() {
         </CardContent></Card>
         <Card><CardContent className="pt-6 text-center">
           <Timer className="h-5 w-5 mx-auto mb-2 text-destructive" />
-          <p className="text-2xl font-bold">{fmtHours(analysis.lossAvgDuration)}</p>
+          <p className="text-2xl font-bold">{fmtMins(analysis.lossAvgDuration)}</p>
           <p className="text-xs text-muted-foreground">Avg Loss Duration</p>
         </CardContent></Card>
         <Card><CardContent className="pt-6 text-center">
