@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { Loader2, TrendingUp, TrendingDown, Minus, ChevronUp, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 
 const SENTIMENT_LEVELS = [
   { value: 'very_bullish', label: 'VERY BULLISH', icon: ChevronUp, color: 'text-chart-green', bg: 'bg-chart-green/20 border-chart-green/50' },
