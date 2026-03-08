@@ -379,23 +379,6 @@ export default function TradeAnalysis() {
     );
   };
 
-  // AI insights handler
-  const fetchAiInsights = async () => {
-    setLoadingAi(true);
-    setShowAi(true);
-    setAiInsights(null);
-    try {
-      const { data, error } = await supabase.functions.invoke('trade-insights', {
-        body: { trades: closed },
-      });
-      if (error) throw error;
-      setAiInsights(data.insights || data.error || 'No insights.');
-    } catch (e: any) {
-      setAiInsights('שגיאה בטעינת תובנות: ' + (e.message || 'Unknown error'));
-    } finally {
-      setLoadingAi(false);
-    }
-  };
 
   const renderCandlestickChart = () => {
     if (candleData.length === 0) {
