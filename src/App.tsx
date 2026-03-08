@@ -48,6 +48,8 @@ import LuckVsSkill from "./pages/LuckVsSkill";
 import ConsecutiveLoss from "./pages/ConsecutiveLoss";
 import OptimalSession from "./pages/OptimalSession";
 import CompoundingSim from "./pages/CompoundingSim";
+import TradeJournalAI from "./pages/TradeJournalAI";
+import EmotionTracker from "./pages/EmotionTracker";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
