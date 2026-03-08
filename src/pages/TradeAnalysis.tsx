@@ -155,9 +155,12 @@ export default function TradeAnalysis() {
     const pnlAtHigh = moveToHigh * dollarPerPoint - fees;
     const pnlAtLow = moveToLow * dollarPerPoint - fees;
     
+    // Cap wicks to 10x the trade's absolute P&L to prevent chart overflow
+    const cap = Math.max(Math.abs(pnl) * 10, 500);
+    
     return {
-      wickHigh: Math.max(pnlAtHigh, pnlAtLow, pnl, 0),
-      wickLow: Math.min(pnlAtHigh, pnlAtLow, pnl, 0),
+      wickHigh: Math.min(Math.max(pnlAtHigh, pnlAtLow, pnl, 0), cap),
+      wickLow: Math.max(Math.min(pnlAtHigh, pnlAtLow, pnl, 0), -cap),
     };
   }, []);
 
