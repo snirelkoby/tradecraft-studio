@@ -232,6 +232,93 @@ function parseRithmic(text: string, userId: string) {
   return trades;
 }
 
+function parseRithmicSimple(text: string, userId: string) {
+  // Accepts CSV with headers: Symbol, Direction, Quantity, Entry Date, Exit Date, Entry Price, Exit Price
+  // Optional: PnL, Fees, Strategy, Notes
+  const lines = text.trim().split('\n');
+  if (lines.length < 2) throw new Error('CSV must have a header and at least one row');
+
+  // Auto-detect delimiter
+  const delimiter = lines[0].includes(';') ? ';' : ',';
+  const headers = lines[0].split(delimiter).map(h => h.trim().toLowerCase());
+
+  const find = (...names: string[]) => headers.findIndex(h => names.some(n => h.includes(n)));
+
+  const symbolIdx = find('symbol', 'ticker', 'instrument');
+  const dirIdx = find('direction', 'side', 'buy/sell', 'type');
+  const qtyIdx = find('quantity', 'qty', 'contracts', 'lots', 'size');
+  const entryDateIdx = find('entry date', 'entry_date', 'entrydate', 'entry time', 'open date', 'open_date');
+  const exitDateIdx = find('exit date', 'exit_date', 'exitdate', 'exit time', 'close date', 'close_date');
+  const entryPriceIdx = find('entry price', 'entry_price', 'entryprice', 'open price');
+  const exitPriceIdx = find('exit price', 'exit_price', 'exitprice', 'close price');
+  const pnlIdx = find('pnl', 'profit', 'p&l', 'profitloss', 'net');
+  const feesIdx = find('fees', 'commission', 'comm');
+  const strategyIdx = find('strategy', 'setup');
+  const notesIdx = find('notes', 'comment');
+
+  if (symbolIdx === -1) throw new Error('Missing "Symbol" column');
+  if (qtyIdx === -1) throw new Error('Missing "Quantity" column');
+  if (entryDateIdx === -1) throw new Error('Missing "Entry Date" column');
+  if (exitDateIdx === -1) throw new Error('Missing "Exit Date" column');
+  if (entryPriceIdx === -1 && exitPriceIdx === -1) throw new Error('Missing price columns');
+
+  return lines.slice(1).filter(l => l.trim()).map(line => {
+    const vals = line.split(delimiter).map(v => v.trim());
+
+    const symbol = vals[symbolIdx]?.toUpperCase().replace(/[A-Z]\d$/, '') || '';
+    const qtyRaw = parseFloat(vals[qtyIdx]) || 1;
+    const qty = Math.abs(qtyRaw);
+    const entryPrice = parseFloat(vals[entryPriceIdx]) || 0;
+    const exitPrice = exitPriceIdx !== -1 ? parseFloat(vals[exitPriceIdx]) || 0 : 0;
+
+    // Direction: explicit or inferred from qty sign
+    let direction = 'long';
+    if (dirIdx !== -1) {
+      const d = vals[dirIdx]?.toLowerCase() || '';
+      direction = (d === 'short' || d === 'sell' || d === 's') ? 'short' : 'long';
+    } else if (qtyRaw < 0) {
+      direction = 'short';
+    }
+
+    // P&L: explicit or calculated
+    let pnl: number | null = null;
+    if (pnlIdx !== -1 && vals[pnlIdx]) {
+      pnl = parseFloat(vals[pnlIdx]);
+      if (isNaN(pnl)) pnl = null;
+    }
+    if (pnl === null && entryPrice && exitPrice) {
+      const cleanSymbol = symbol.replace(/[A-Z]\d$/, '');
+      const futConfig = FUTURES_CONFIG.find(f => cleanSymbol.startsWith(f.symbol));
+      const pointValue = futConfig ? futConfig.tickValue / futConfig.tickSize : 1;
+      pnl = direction === 'long'
+        ? (exitPrice - entryPrice) * qty * pointValue
+        : (entryPrice - exitPrice) * qty * pointValue;
+    }
+
+    const fees = feesIdx !== -1 ? (parseFloat(vals[feesIdx]) || 0) : 0;
+
+    return {
+      user_id: userId,
+      symbol,
+      direction,
+      entry_date: new Date(vals[entryDateIdx]).toISOString(),
+      exit_date: new Date(vals[exitDateIdx]).toISOString(),
+      entry_price: entryPrice,
+      exit_price: exitPrice || null,
+      quantity: qty,
+      pnl,
+      pnl_percent: null,
+      fees,
+      stop_loss: null,
+      take_profit: null,
+      strategy: strategyIdx !== -1 ? vals[strategyIdx] || null : null,
+      notes: notesIdx !== -1 ? vals[notesIdx] || null : null,
+      status: 'closed' as const,
+      asset_type: 'Futures',
+    };
+  }).filter(t => t.symbol && t.entry_price > 0);
+}
+
 export function CsvImport() {
   const { user } = useAuth();
   const qc = useQueryClient();
