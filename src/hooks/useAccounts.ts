@@ -48,6 +48,24 @@ export function useAddAccount() {
   });
 }
 
+export function useUpdateAccount() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: { id: string; name?: string; account_type?: string; starting_balance?: number }) => {
+      const { data, error } = await supabase
+        .from('accounts')
+        .update(updates as any)
+        .eq('id', id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['accounts'] }),
+  });
+}
+
 export function useDeleteAccount() {
   const qc = useQueryClient();
 

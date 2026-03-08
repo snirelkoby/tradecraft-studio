@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { useAccounts, useAddAccount, useDeleteAccount } from '@/hooks/useAccounts';
+import { useAccounts, useAddAccount, useDeleteAccount, useUpdateAccount } from '@/hooks/useAccounts';
 import { useTrades } from '@/hooks/useTrades';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, Trash2, Wallet } from 'lucide-react';
+import { Plus, Trash2, Wallet, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 
 const ACCOUNT_TYPES = [
@@ -21,11 +21,19 @@ export default function Accounts() {
   const { data: trades } = useTrades();
   const addAccount = useAddAccount();
   const deleteAccount = useDeleteAccount();
+  const updateAccount = useUpdateAccount();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [name, setName] = useState('');
   const [type, setType] = useState('day_trading');
   const [balance, setBalance] = useState('');
+
+  // Edit state
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editId, setEditId] = useState('');
+  const [editName, setEditName] = useState('');
+  const [editType, setEditType] = useState('');
+  const [editBalance, setEditBalance] = useState('');
 
   const handleAdd = () => {
     if (!name.trim()) { toast.error('Enter account name'); return; }
@@ -37,6 +45,27 @@ export default function Accounts() {
           setDialogOpen(false);
           setName('');
           setBalance('');
+        },
+      }
+    );
+  };
+
+  const openEdit = (acc: { id: string; name: string; account_type: string; starting_balance: number }) => {
+    setEditId(acc.id);
+    setEditName(acc.name);
+    setEditType(acc.account_type);
+    setEditBalance(String(acc.starting_balance));
+    setEditDialogOpen(true);
+  };
+
+  const handleEdit = () => {
+    if (!editName.trim()) { toast.error('Enter account name'); return; }
+    updateAccount.mutate(
+      { id: editId, name: editName.trim(), account_type: editType, starting_balance: parseFloat(editBalance) || 0 },
+      {
+        onSuccess: () => {
+          toast.success('Account updated');
+          setEditDialogOpen(false);
         },
       }
     );
@@ -89,6 +118,33 @@ export default function Accounts() {
         </Dialog>
       </div>
 
+      {/* Edit Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="bg-card border-border max-w-md">
+          <DialogHeader><DialogTitle>Edit Account</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs text-muted-foreground uppercase">Account Name</label>
+              <Input value={editName} onChange={e => setEditName(e.target.value)} className="bg-secondary" />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground uppercase">Account Type</label>
+              <Select value={editType} onValueChange={setEditType}>
+                <SelectTrigger className="bg-secondary"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {ACCOUNT_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground uppercase">Starting Balance</label>
+              <Input type="number" value={editBalance} onChange={e => setEditBalance(e.target.value)} className="bg-secondary" />
+            </div>
+            <Button onClick={handleEdit} className="w-full" disabled={updateAccount.isPending}>Save Changes</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {isLoading ? (
         <p className="text-center py-12 text-muted-foreground">Loading...</p>
       ) : !accounts?.length ? (
@@ -108,15 +164,20 @@ export default function Accounts() {
               <Card key={acc.id} className="bg-card border-border">
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                   <CardTitle className="text-base font-bold">{acc.name}</CardTitle>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => {
-                      if (confirm('Delete this account?')) deleteAccount.mutate(acc.id);
-                    }}
-                  >
-                    <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                  </Button>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" onClick={() => openEdit(acc)}>
+                      <Pencil className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        if (confirm('Delete this account?')) deleteAccount.mutate(acc.id);
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <span className="inline-block text-xs bg-secondary text-muted-foreground px-2 py-1 rounded-md">{typeLabel}</span>
