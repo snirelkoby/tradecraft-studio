@@ -67,6 +67,10 @@ const App = () => (
                     <Route path="/calendar" element={<CalendarView />} />
                     <Route path="/blueprints" element={<Blueprints />} />
                     <Route path="/playbook" element={<Playbook />} />
+                    <Route path="/trade-replay" element={<TradeReplay />} />
+                    <Route path="/mistakes" element={<MistakeTracker />} />
+                    <Route path="/commissions" element={<CommissionTracker />} />
+                    <Route path="/compare" element={<TradeComparison />} />
                     <Route path="/weekly-review" element={<WeeklyReview />} />
                     <Route path="/journal" element={<Journal />} />
                     <Route path="/ledger" element={<Ledger />} />
