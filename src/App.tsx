@@ -42,6 +42,12 @@ import RuleViolations from "./pages/RuleViolations";
 import SessionPlanner from "./pages/SessionPlanner";
 import AbStrategyTester from "./pages/AbStrategyTester";
 import TimeInTrade from "./pages/TimeInTrade";
+import TradeDna from "./pages/TradeDna";
+import MarketRegime from "./pages/MarketRegime";
+import LuckVsSkill from "./pages/LuckVsSkill";
+import ConsecutiveLoss from "./pages/ConsecutiveLoss";
+import OptimalSession from "./pages/OptimalSession";
+import CompoundingSim from "./pages/CompoundingSim";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -97,6 +103,12 @@ const App = () => (
                     <Route path="/session-plan" element={<SessionPlanner />} />
                     <Route path="/ab-test" element={<AbStrategyTester />} />
                     <Route path="/time-in-trade" element={<TimeInTrade />} />
+                    <Route path="/trade-dna" element={<TradeDna />} />
+                    <Route path="/market-regime" element={<MarketRegime />} />
+                    <Route path="/luck-skill" element={<LuckVsSkill />} />
+                    <Route path="/consecutive-loss" element={<ConsecutiveLoss />} />
+                    <Route path="/optimal-session" element={<OptimalSession />} />
+                    <Route path="/compounding" element={<CompoundingSim />} />
                     <Route path="/weekly-review" element={<WeeklyReview />} />
                     <Route path="/journal" element={<Journal />} />
                     <Route path="/ledger" element={<Ledger />} />

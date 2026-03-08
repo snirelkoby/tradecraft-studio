@@ -2,7 +2,8 @@ import {
   BarChart3, BookOpen, Calendar, FileText, PenTool,
   Calculator, Settings, LogOut, Notebook, FlaskConical, Wallet, CandlestickChart, Sparkles, Globe, CalendarClock,
   CalendarRange, Gamepad2, Play, AlertTriangle, DollarSign, GitCompare, Target, ClipboardCheck, Flame, GraduationCap,
-  Brain, Link2, Dice5, Trophy, TrendingDown, ShieldAlert, CalendarDays, FlaskRound, Hourglass
+  Brain, Link2, Dice5, Trophy, TrendingDown, ShieldAlert, CalendarDays, FlaskRound, Hourglass,
+  Fingerprint, Activity, Clover, ArrowDownUp, Clock, TrendingUp
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/hooks/useAuth';
@@ -37,6 +38,12 @@ const navItems = [
   { title: 'Session Plan', url: '/session-plan', icon: CalendarDays },
   { title: 'A/B Tester', url: '/ab-test', icon: FlaskRound },
   { title: 'Time-in-Trade', url: '/time-in-trade', icon: Hourglass },
+  { title: 'Trade DNA', url: '/trade-dna', icon: Fingerprint },
+  { title: 'Market Regime', url: '/market-regime', icon: Activity },
+  { title: 'Luck vs Skill', url: '/luck-skill', icon: Clover },
+  { title: 'Loss Impact', url: '/consecutive-loss', icon: ArrowDownUp },
+  { title: 'Optimal Session', url: '/optimal-session', icon: Clock },
+  { title: 'Compounding', url: '/compounding', icon: TrendingUp },
   { title: 'Calendar', url: '/calendar', icon: Calendar },
   { title: 'Blueprints', url: '/blueprints', icon: BookOpen },
   { title: 'Daily Journal', url: '/journal', icon: Notebook },
