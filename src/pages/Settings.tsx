@@ -161,8 +161,14 @@ export default function SettingsPage() {
           />
           <div className="flex items-center gap-3">
             <Input type="color" value={hslToHex(colors.background)} onChange={e => setColors({ background: hexToHsl(e.target.value) })} className="w-12 h-10 p-1 cursor-pointer bg-secondary" />
-            <span className="text-xs text-muted-foreground font-mono">Custom background</span>
-            <Button variant="ghost" size="sm" onClick={() => setColors({ background: '220 20% 3%', cardBackground: '220 18% 6%', foreground: '210 40% 96%' })}>Reset</Button>
+            <span className="text-xs text-muted-foreground font-mono">רקע ראשי</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <Input type="color" value={hslToHex(colors.cardBackground)} onChange={e => setColors({ cardBackground: hexToHsl(e.target.value) })} className="w-12 h-10 p-1 cursor-pointer bg-secondary" />
+            <span className="text-xs text-muted-foreground font-mono">רקע כרטיסים</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="sm" onClick={() => setColors({ background: '220 20% 3%', cardBackground: '220 18% 6%', foreground: '210 40% 96%' })}>איפוס</Button>
           </div>
         </CardContent>
       </Card>
