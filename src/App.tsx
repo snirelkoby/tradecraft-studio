@@ -20,7 +20,7 @@ import RiskEngine from "./pages/RiskEngine";
 import Calculators from "./pages/Calculators";
 import MacroAnalysis from "./pages/MacroAnalysis";
 import EconomicCalendar from "./pages/EconomicCalendar";
-import Journal from "./pages/Journal";
+// Journal removed - merged into MindsetJournal (now Daily Journal)
 import Accounts from "./pages/Accounts";
 import SettingsPage from "./pages/Settings";
 import WeeklyReview from "./pages/WeeklyReview";
