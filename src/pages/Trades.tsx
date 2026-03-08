@@ -44,6 +44,7 @@ export default function Trades() {
 
   const strategies = useMemo(() => [...new Set((trades ?? []).map(t => t.strategy).filter(Boolean))], [trades]);
   const assetTypes = useMemo(() => [...new Set((trades ?? []).map(t => t.asset_type).filter(Boolean))], [trades]);
+  const allTags = useMemo(() => [...new Set((trades ?? []).flatMap(t => t.tags ?? []))], [trades]);
 
   const filtered = useMemo(() => {
     if (!trades) return [];
