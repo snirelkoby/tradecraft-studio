@@ -41,6 +41,7 @@ import DrawdownAnalyzer from "./pages/DrawdownAnalyzer";
 import RuleViolations from "./pages/RuleViolations";
 import SessionPlanner from "./pages/SessionPlanner";
 import AbStrategyTester from "./pages/AbStrategyTester";
+import TimeInTrade from "./pages/TimeInTrade";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -95,6 +96,7 @@ const App = () => (
                     <Route path="/violations" element={<RuleViolations />} />
                     <Route path="/session-plan" element={<SessionPlanner />} />
                     <Route path="/ab-test" element={<AbStrategyTester />} />
+                    <Route path="/time-in-trade" element={<TimeInTrade />} />
                     <Route path="/weekly-review" element={<WeeklyReview />} />
                     <Route path="/journal" element={<Journal />} />
                     <Route path="/ledger" element={<Ledger />} />
