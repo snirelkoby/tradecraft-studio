@@ -127,7 +127,7 @@ export default function Trades() {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
-          <CsvImport />
+          <CsvImport selectedAccount={selectedAccount} />
           <Dialog open={formOpen} onOpenChange={setFormOpen}>
             <DialogTrigger asChild>
               <Button disabled={!canAddTrade} title={!canAddTrade ? 'Select a specific account first' : undefined}>

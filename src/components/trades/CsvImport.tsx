@@ -315,13 +315,15 @@ function parseRithmicSimple(text: string, userId: string) {
   }).filter(t => t.symbol && t.entry_price > 0);
 }
 
-export function CsvImport() {
+export function CsvImport({ selectedAccount }: { selectedAccount: string }) {
   const { user } = useAuth();
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedSource, setSelectedSource] = useState<CsvSource | null>(null);
+
+  const canImport = selectedAccount !== 'all';
 
   const handleSourceSelect = (source: CsvSource) => {
     setSelectedSource(source);
@@ -353,6 +355,9 @@ export function CsvImport() {
 
       if (trades.length === 0) throw new Error('No trades found in file');
 
+      // Assign selected account to all imported trades
+      trades = trades.map(t => ({ ...t, account_name: selectedAccount }));
+
       for (let i = 0; i < trades.length; i += 100) {
         const batch = trades.slice(i, i + 100);
         const { error } = await supabase.from('trades').insert(batch as any);
@@ -374,7 +379,7 @@ export function CsvImport() {
   return (
     <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
       <DialogTrigger asChild>
-        <Button variant="secondary">
+        <Button variant="secondary" disabled={!canImport} title={!canImport ? 'Select a specific account first' : undefined}>
           <Upload className="h-4 w-4 mr-2" />
           {importing ? 'Importing...' : 'Import CSV'}
         </Button>
