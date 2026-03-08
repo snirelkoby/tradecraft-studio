@@ -16,6 +16,8 @@ interface TradeFormProps {
 
 export function TradeForm({ onSuccess }: TradeFormProps) {
   const addTrade = useAddTrade();
+  const { data: existingTrades } = useTrades();
+  const [tags, setTags] = useState<string[]>([]);
   const [form, setForm] = useState({
     asset_type: 'Futures' as string,
     symbol: '',
@@ -31,6 +33,8 @@ export function TradeForm({ onSuccess }: TradeFormProps) {
     strategy: '',
     notes: '',
   });
+
+  const allTags = [...new Set((existingTrades ?? []).flatMap(t => t.tags ?? []))];
 
   const isFutures = form.asset_type === 'Futures';
 
