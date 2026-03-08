@@ -10,6 +10,7 @@ import ReactMarkdown from 'react-markdown';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CotHistoryChart } from '@/components/macro/CotHistoryChart';
 import { IndicatorCharts } from '@/components/macro/IndicatorChart';
+import { OptionsSentiment } from '@/components/macro/OptionsSentiment';
 
 interface Indicator {
   name: string;
@@ -297,6 +298,11 @@ export default function MacroAnalysis() {
         {!cotData && !cotLoading && (
           <p className="text-sm text-muted-foreground text-center py-4">לחץ על "Load COT Data" כדי לטעון נתוני COT היסטוריים (שנה אחורה) מ-CFTC</p>
         )}
+      </div>
+
+      {/* Options Sentiment */}
+      <div className="rounded-xl border border-border bg-card p-6">
+        <OptionsSentiment />
       </div>
 
       {/* COT History Chart */}

@@ -5,22 +5,23 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// BLS Series IDs for key economic indicators
-const SERIES_MAP: Record<string, { seriesId: string; label: string; format: string }> = {
-  "CPI YoY": { seriesId: "CUSR0000SA0", label: "CPI (All Urban Consumers)", format: "index" },
-  "Core CPI": { seriesId: "CUSR0000SA0L1E", label: "Core CPI (Less Food & Energy)", format: "index" },
-  "PPI YoY": { seriesId: "WPSFD4", label: "PPI (Final Demand)", format: "index" },
-  "NFP": { seriesId: "CES0000000001", label: "Total Non-Farm Payrolls", format: "thousands" },
-  "Unemployment": { seriesId: "LNS14000000", label: "Unemployment Rate", format: "percent" },
-  "Retail Sales": { seriesId: "MRTSSM44000USS", label: "Retail Sales", format: "millions" },
-  "ISM Mfg": { seriesId: "NAPM", label: "ISM Manufacturing PMI", format: "index" },
-  "Consumer Confidence": { seriesId: "CSCICP03USM665S", label: "Consumer Confidence", format: "index" },
+// BLS Series IDs — monthly and quarterly indicators
+const SERIES_MAP: Record<string, { seriesId: string; label: string; format: string; frequency: string }> = {
+  // Monthly
+  "CPI YoY": { seriesId: "CUSR0000SA0", label: "CPI (All Urban Consumers)", format: "index", frequency: "monthly" },
+  "Core CPI": { seriesId: "CUSR0000SA0L1E", label: "Core CPI (Less Food & Energy)", format: "index", frequency: "monthly" },
+  "PPI YoY": { seriesId: "WPSFD4", label: "PPI (Final Demand)", format: "index", frequency: "monthly" },
+  "NFP": { seriesId: "CES0000000001", label: "Total Non-Farm Payrolls", format: "thousands", frequency: "monthly" },
+  "Unemployment": { seriesId: "LNS14000000", label: "Unemployment Rate", format: "percent", frequency: "monthly" },
+  "Initial Claims": { seriesId: "LNS13023621", label: "Initial Unemployment Claims", format: "thousands", frequency: "monthly" },
+  "JOLTS": { seriesId: "JTS000000000000000JOL", label: "Job Openings (JOLTS)", format: "thousands", frequency: "monthly" },
+  "Retail Sales": { seriesId: "MRTSSM44000USS", label: "Retail Sales", format: "millions", frequency: "monthly" },
+  "ISM Mfg": { seriesId: "NAPM", label: "ISM Manufacturing PMI", format: "index_50", frequency: "monthly" },
+  "Industrial Production": { seriesId: "IPN50001S", label: "Industrial Production", format: "index", frequency: "monthly" },
+  // Quarterly
+  "GDP QoQ": { seriesId: "PRS85006092", label: "GDP (Productivity proxy)", format: "index", frequency: "quarterly" },
 };
 
-// FRED API (free, more reliable, covers all indicators)
-const FRED_BASE = "https://api.stlouisfed.org/series/observations";
-
-// BLS API v2 (free tier, no key needed for v1)
 const BLS_BASE = "https://api.bls.gov/publicAPI/v1/timeseries/data/";
 
 serve(async (req) => {
@@ -30,12 +31,10 @@ serve(async (req) => {
     const { indicators } = await req.json();
     const requestedNames = indicators || Object.keys(SERIES_MAP);
 
-    // Calculate date range: 2 years back
     const now = new Date();
     const startYear = now.getFullYear() - 2;
     const endYear = now.getFullYear();
 
-    // Use BLS API v1 (no key required)
     const seriesIds = requestedNames
       .filter((name: string) => SERIES_MAP[name])
       .map((name: string) => SERIES_MAP[name].seriesId);
@@ -46,7 +45,7 @@ serve(async (req) => {
       });
     }
 
-    // BLS API v1 supports up to 25 series at once
+    // BLS v1 supports up to 25 series
     const blsPayload = {
       seriesid: seriesIds,
       startyear: String(startYear),
@@ -69,7 +68,6 @@ serve(async (req) => {
 
     if (blsData.status === "REQUEST_SUCCEEDED" && blsData.Results?.series) {
       for (const series of blsData.Results.series) {
-        // Find which indicator this series belongs to
         const indicatorEntry = Object.entries(SERIES_MAP).find(
           ([, cfg]) => cfg.seriesId === series.seriesID
         );
@@ -78,21 +76,23 @@ serve(async (req) => {
         const [name, cfg] = indicatorEntry;
         const dataPoints = (series.data || [])
           .map((d: any) => {
-            // BLS date format: year + period (M01-M12 for monthly)
-            const month = d.period.replace("M", "").padStart(2, "0");
-            if (d.period.startsWith("M") && parseInt(month) <= 12) {
-              return {
-                date: `${d.year}-${month}-01`,
-                value: parseFloat(d.value),
-                footnotes: d.footnotes?.map((f: any) => f.text).filter(Boolean).join("; ") || "",
-              };
+            // Monthly: M01-M12, Quarterly: Q01-Q04
+            if (d.period.startsWith("M")) {
+              const month = d.period.replace("M", "").padStart(2, "0");
+              if (parseInt(month) <= 12) {
+                return { date: `${d.year}-${month}-01`, value: parseFloat(d.value) };
+              }
+            } else if (d.period.startsWith("Q")) {
+              const q = parseInt(d.period.replace("Q0", "").replace("Q", ""));
+              const month = String((q - 1) * 3 + 1).padStart(2, "0");
+              return { date: `${d.year}-${month}-01`, value: parseFloat(d.value) };
             }
             return null;
           })
           .filter(Boolean)
           .sort((a: any, b: any) => a.date.localeCompare(b.date));
 
-        // For CPI/PPI, calculate YoY % change
+        // YoY calculation for index types
         if (cfg.format === "index" && dataPoints.length > 12) {
           const yoyPoints = [];
           for (let i = 12; i < dataPoints.length; i++) {
@@ -105,9 +105,9 @@ serve(async (req) => {
               });
             }
           }
-          results[name] = { label: cfg.label, format: "percent_yoy", data: yoyPoints };
+          results[name] = { label: cfg.label, format: "percent_yoy", frequency: cfg.frequency, data: yoyPoints };
         } else if (name === "NFP") {
-          // For NFP, calculate MoM change (jobs added)
+          // MoM change for NFP
           const momPoints = [];
           for (let i = 1; i < dataPoints.length; i++) {
             momPoints.push({
@@ -115,9 +115,9 @@ serve(async (req) => {
               value: parseFloat(((dataPoints[i].value - dataPoints[i - 1].value) * 1000).toFixed(0)),
             });
           }
-          results[name] = { label: cfg.label, format: "jobs_change", data: momPoints };
+          results[name] = { label: cfg.label, format: "jobs_change", frequency: cfg.frequency, data: momPoints };
         } else {
-          results[name] = { label: cfg.label, format: cfg.format, data: dataPoints };
+          results[name] = { label: cfg.label, format: cfg.format, frequency: cfg.frequency, data: dataPoints };
         }
       }
     }

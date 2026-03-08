@@ -259,6 +259,36 @@ export type Database = {
         }
         Relationships: []
       }
+      options_sentiment: {
+        Row: {
+          created_at: string
+          id: string
+          notes: string | null
+          sentiment: string
+          updated_at: string
+          user_id: string
+          week_start: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          sentiment?: string
+          updated_at?: string
+          user_id: string
+          week_start: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          sentiment?: string
+          updated_at?: string
+          user_id?: string
+          week_start?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
