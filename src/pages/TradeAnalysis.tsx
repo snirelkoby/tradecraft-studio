@@ -570,6 +570,14 @@ export default function TradeAnalysis() {
                 >
                   Daily
                 </button>
+                <button
+                  onClick={() => setMode('monthly')}
+                  className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                    mode === 'monthly' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Monthly
+                </button>
               </div>
             )}
             {loadingYahoo && mode === 'per-trade' && activeView === 'trade-candles' && (
