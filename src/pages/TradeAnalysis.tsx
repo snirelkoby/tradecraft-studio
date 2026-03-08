@@ -4,6 +4,8 @@ import { useSelectedAccount } from '@/hooks/useSelectedAccount';
 import { format, parseISO, isAfter, isBefore } from 'date-fns';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Download, Sparkles, Loader2 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 
 import {
   ResponsiveContainer, ComposedChart, Bar, XAxis, YAxis,
@@ -29,6 +31,20 @@ type ViewId = typeof VIEWS[number]['id'];
 
 interface YahooResult { high: number; low: number; }
 
+// Custom crosshair cursor for charts
+const CrosshairCursor = (props: any) => {
+  const { points, width, height, top, left } = props;
+  if (!points || !points[0]) return null;
+  const { x, y } = points[0];
+  return (
+    <g>
+      <line x1={x} y1={top} x2={x} y2={top + height} stroke="hsl(var(--muted-foreground))" strokeWidth={1} strokeDasharray="4 3" strokeOpacity={0.6} />
+      <line x1={left} y1={y} x2={left + width} y2={y} stroke="hsl(var(--muted-foreground))" strokeWidth={1} strokeDasharray="4 3" strokeOpacity={0.6} />
+      <circle cx={x} cy={y} r={4} fill="hsl(var(--primary))" stroke="hsl(var(--background))" strokeWidth={2} />
+    </g>
+  );
+};
+
 // Custom Bar shape that renders candle body + wicks
 const CandleBarShape = (props: any) => {
   const { x, y, width, height, payload } = props;
@@ -39,7 +55,6 @@ const CandleBarShape = (props: any) => {
   const absHeight = Math.abs(height);
   const barTop = height >= 0 ? y : y + height;
 
-  // If no wick data, render simple bar
   if (payload.wickHigh == null || payload.wickLow == null || payload.close === 0) {
     return (
       <g>
@@ -48,11 +63,7 @@ const CandleBarShape = (props: any) => {
     );
   }
 
-  // Calculate wick positions proportionally
-  // The bar spans from 0-line to close-value in pixels
-  // pxPerDollar = absHeight / |close|
   const pxPerDollar = absHeight / Math.abs(payload.close);
-  // zeroY is the pixel position of the $0 line
   const zeroY = payload.close >= 0 ? barTop + absHeight : barTop;
 
   const wickTopY = zeroY - Math.max(payload.wickHigh, 0) * pxPerDollar;
@@ -60,13 +71,44 @@ const CandleBarShape = (props: any) => {
 
   return (
     <g>
-      {/* Wick line */}
       <line x1={centerX} y1={wickTopY} x2={centerX} y2={wickBottomY} stroke="hsl(var(--muted-foreground))" strokeWidth={1.5} />
-      {/* Candle body */}
       <rect x={x} y={barTop} width={width} height={Math.max(absHeight, 2)} fill={color} rx={2} />
     </g>
   );
 };
+
+// CSV export helper
+function downloadCSV(trades: Trade[], filename: string) {
+  const headers = ['Date', 'Symbol', 'Direction', 'Asset Type', 'Strategy', 'Account', 'Entry Price', 'Exit Price', 'Quantity', 'Fees', 'P&L', 'P&L %', 'Status', 'Stop Loss', 'Take Profit', 'Tags', 'Notes'];
+  const rows = trades.map(t => [
+    t.entry_date,
+    t.symbol,
+    t.direction,
+    t.asset_type ?? '',
+    t.strategy ?? '',
+    t.account_name ?? '',
+    t.entry_price,
+    t.exit_price ?? '',
+    t.quantity,
+    t.fees ?? 0,
+    t.pnl ?? '',
+    t.pnl_percent ?? '',
+    t.status,
+    t.stop_loss ?? '',
+    t.take_profit ?? '',
+    (t.tags ?? []).join('; '),
+    (t.notes ?? '').replace(/,/g, ' '),
+  ]);
+
+  const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 export default function TradeAnalysis() {
   const { data: trades, isLoading } = useTrades();
@@ -77,6 +119,9 @@ export default function TradeAnalysis() {
   const [dateTo, setDateTo] = useState('');
   const [yahooData, setYahooData] = useState<Record<string, YahooResult | null>>({});
   const [loadingYahoo, setLoadingYahoo] = useState(false);
+  const [aiInsights, setAiInsights] = useState<string | null>(null);
+  const [loadingAi, setLoadingAi] = useState(false);
+  const [showAi, setShowAi] = useState(false);
 
   const closed = useMemo(() => {
     return (trades ?? [])
@@ -129,8 +174,6 @@ export default function TradeAnalysis() {
     fetchYahoo();
   }, [closed, mode]);
 
-  // Calculate proportional P&L at a yahoo price using the actual trade's known P&L
-  // This correctly handles futures multipliers without needing to know the tick value
   const calcWickPnl = useCallback((trade: Trade, yahooHigh: number, yahooLow: number) => {
     const pnl = trade.pnl ?? 0;
     const entry = trade.entry_price;
@@ -144,17 +187,14 @@ export default function TradeAnalysis() {
     
     if (priceMove === 0) return { wickHigh: null, wickLow: null };
     
-    // dollarPerPoint = how much $ per 1 point of price movement (includes multiplier & quantity)
     const dollarPerPoint = pnlBeforeFees / priceMove;
     
-    // Calculate P&L if price reached yahoo high/low
     const moveToHigh = trade.direction === 'long' ? yahooHigh - entry : entry - yahooLow;
     const moveToLow = trade.direction === 'long' ? yahooLow - entry : entry - yahooHigh;
     
     const pnlAtHigh = moveToHigh * dollarPerPoint - fees;
     const pnlAtLow = moveToLow * dollarPerPoint - fees;
     
-    // Cap wicks to 10x the trade's absolute P&L to prevent chart overflow
     const cap = Math.max(Math.abs(pnl) * 3, 200);
     
     return {
@@ -225,7 +265,6 @@ export default function TradeAnalysis() {
     return result;
   }, [closed]);
 
-  // Monthly candle data
   const monthlyCandles = useMemo(() => {
     const monthMap = new Map<string, Trade[]>();
     closed.forEach(t => {
@@ -335,12 +374,29 @@ export default function TradeAnalysis() {
     );
   };
 
+  // AI insights handler
+  const fetchAiInsights = async () => {
+    setLoadingAi(true);
+    setShowAi(true);
+    setAiInsights(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('trade-insights', {
+        body: { trades: closed },
+      });
+      if (error) throw error;
+      setAiInsights(data.insights || data.error || 'No insights.');
+    } catch (e: any) {
+      setAiInsights('שגיאה בטעינת תובנות: ' + (e.message || 'Unknown error'));
+    } finally {
+      setLoadingAi(false);
+    }
+  };
+
   const renderCandlestickChart = () => {
     if (candleData.length === 0) {
       return <p className="text-muted-foreground text-center py-20">No closed trades in selected range</p>;
     }
 
-    // Calculate Y domain including wicks
     const allValues = candleData.flatMap(d => [
       d.close, 0,
       d.wickHigh ?? d.close,
@@ -367,8 +423,7 @@ export default function TradeAnalysis() {
             domain={[dataMin - padding, dataMax + padding]}
           />
           <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" strokeOpacity={0.5} />
-          <Tooltip content={<CandleTooltip />} />
-          {/* Candle bodies with wicks via custom shape */}
+          <Tooltip content={<CandleTooltip />} cursor={<CrosshairCursor />} />
           <Bar dataKey="close" barSize={mode === 'per-trade' ? 8 : mode === 'daily' ? 20 : 30} name="P&L" shape={<CandleBarShape />}>
             {candleData.map((entry, i) => (
               <Cell key={i} fill={entry.isProfit ? 'hsl(var(--chart-green))' : 'hsl(var(--chart-purple, 262 83% 58%))'} />
@@ -401,7 +456,7 @@ export default function TradeAnalysis() {
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={10} interval={Math.max(0, Math.floor(equityData.length / 20))} />
               <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={v => `$${v}`} />
-              <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`$${v.toFixed(2)}`, 'Equity']} />
+              <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`$${v.toFixed(2)}`, 'Equity']} cursor={<CrosshairCursor />} />
               <Area type="monotone" dataKey="equity" stroke="hsl(var(--chart-blue))" strokeWidth={2} fill="url(#eqGrad)" />
             </AreaChart>
           </ResponsiveContainer>
@@ -420,7 +475,7 @@ export default function TradeAnalysis() {
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={10} />
               <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={v => `$${v}`} />
-              <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`$${v.toFixed(2)}`, 'Long Equity']} />
+              <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`$${v.toFixed(2)}`, 'Long Equity']} cursor={<CrosshairCursor />} />
               <Area type="monotone" dataKey="equity" stroke="hsl(var(--chart-green))" strokeWidth={2} fill="url(#longGrad)" />
             </AreaChart>
           </ResponsiveContainer>
@@ -439,7 +494,7 @@ export default function TradeAnalysis() {
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={10} />
               <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={v => `$${v}`} />
-              <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`$${v.toFixed(2)}`, 'Short Equity']} />
+              <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`$${v.toFixed(2)}`, 'Short Equity']} cursor={<CrosshairCursor />} />
               <Area type="monotone" dataKey="equity" stroke="hsl(var(--chart-purple))" strokeWidth={2} fill="url(#shortGrad)" />
             </AreaChart>
           </ResponsiveContainer>
@@ -458,7 +513,7 @@ export default function TradeAnalysis() {
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={10} />
               <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={v => `${v.toFixed(1)}%`} />
-              <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`${v.toFixed(2)}%`, 'Drawdown']} />
+              <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`${v.toFixed(2)}%`, 'Drawdown']} cursor={<CrosshairCursor />} />
               <Area type="monotone" dataKey="drawdown" stroke="hsl(var(--chart-red))" strokeWidth={2} fill="url(#ddGrad)" />
             </AreaChart>
           </ResponsiveContainer>
@@ -472,7 +527,7 @@ export default function TradeAnalysis() {
               <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={10} />
               <YAxis yAxisId="eq" stroke="hsl(var(--chart-blue))" fontSize={11} tickFormatter={v => `$${v}`} />
               <YAxis yAxisId="dd" orientation="right" stroke="hsl(var(--chart-red))" fontSize={11} tickFormatter={v => `${v.toFixed(0)}%`} />
-              <Tooltip contentStyle={tooltipStyle} />
+              <Tooltip contentStyle={tooltipStyle} cursor={<CrosshairCursor />} />
               <Line yAxisId="eq" type="monotone" dataKey="equity" stroke="hsl(var(--chart-blue))" strokeWidth={2} dot={false} name="Equity ($)" />
               <Area yAxisId="dd" type="monotone" dataKey="drawdown" stroke="hsl(var(--chart-red))" fill="hsl(var(--chart-red) / 0.15)" strokeWidth={1} name="Drawdown (%)" />
             </ComposedChart>
@@ -486,7 +541,7 @@ export default function TradeAnalysis() {
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={11} />
               <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={v => `$${v}`} />
-              <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`$${v.toFixed(2)}`, 'P&L']} />
+              <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`$${v.toFixed(2)}`, 'P&L']} cursor={<CrosshairCursor />} />
               <Bar dataKey="pnl" radius={[4, 4, 0, 0]}>
                 {dailyPLData.map((entry, i) => (
                   <Cell key={i} fill={entry.pnl >= 0 ? 'hsl(var(--chart-green))' : 'hsl(var(--chart-red))'} />
@@ -516,7 +571,6 @@ export default function TradeAnalysis() {
 
       <div className="flex flex-col lg:flex-row gap-4">
         <div className="lg:w-56 flex-shrink-0 space-y-3">
-
           <div className="space-y-1">
             {VIEWS.map(v => (
               <button
@@ -532,66 +586,113 @@ export default function TradeAnalysis() {
               </button>
             ))}
           </div>
+
+          {/* AI Insights Button */}
+          <Button
+            onClick={fetchAiInsights}
+            disabled={loadingAi || closed.length === 0}
+            className="w-full gap-2"
+            variant="outline"
+          >
+            {loadingAi ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+            AI Insights
+          </Button>
+
+          {/* Export Button */}
+          <Button
+            onClick={() => downloadCSV(closed, `trades-${dateFrom || 'all'}-${dateTo || 'all'}.csv`)}
+            disabled={closed.length === 0}
+            className="w-full gap-2"
+            variant="outline"
+          >
+            <Download className="h-4 w-4" />
+            Export CSV
+          </Button>
         </div>
 
         {/* Main chart area */}
-        <div className="flex-1 rounded-xl border border-border bg-card p-5 space-y-4">
-          {/* Controls */}
-          <div className="flex flex-wrap items-center gap-3">
-            {activeView === 'trade-candles' && (
-              <div className="flex rounded-lg border border-border overflow-hidden">
-                <button
-                  onClick={() => setMode('per-trade')}
-                  className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                    mode === 'per-trade' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  Per Trade
-                </button>
-                <button
-                  onClick={() => setMode('daily')}
-                  className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                    mode === 'daily' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  Daily
-                </button>
-                <button
-                  onClick={() => setMode('monthly')}
-                  className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                    mode === 'monthly' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  Monthly
-                </button>
+        <div className="flex-1 space-y-4">
+          <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+            {/* Controls */}
+            <div className="flex flex-wrap items-center gap-3">
+              {activeView === 'trade-candles' && (
+                <div className="flex rounded-lg border border-border overflow-hidden">
+                  <button
+                    onClick={() => setMode('per-trade')}
+                    className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                      mode === 'per-trade' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Per Trade
+                  </button>
+                  <button
+                    onClick={() => setMode('daily')}
+                    className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                      mode === 'daily' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Daily
+                  </button>
+                  <button
+                    onClick={() => setMode('monthly')}
+                    className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                      mode === 'monthly' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Monthly
+                  </button>
+                </div>
+              )}
+              {loadingYahoo && mode === 'per-trade' && activeView === 'trade-candles' && (
+                <span className="text-xs text-muted-foreground animate-pulse">Loading market data...</span>
+              )}
+              <div className="flex items-center gap-2 ml-auto">
+                <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="bg-secondary text-xs w-36" />
+                <span className="text-muted-foreground text-xs">→</span>
+                <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="bg-secondary text-xs w-36" />
+                {(dateFrom || dateTo) && (
+                  <Button variant="ghost" size="sm" className="text-xs" onClick={() => { setDateFrom(''); setDateTo(''); }}>Clear</Button>
+                )}
               </div>
-            )}
-            {loadingYahoo && mode === 'per-trade' && activeView === 'trade-candles' && (
-              <span className="text-xs text-muted-foreground animate-pulse">Loading market data...</span>
-            )}
-            <div className="flex items-center gap-2 ml-auto">
-              <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="bg-secondary text-xs w-36" />
-              <span className="text-muted-foreground text-xs">→</span>
-              <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="bg-secondary text-xs w-36" />
-              {(dateFrom || dateTo) && (
-                <Button variant="ghost" size="sm" className="text-xs" onClick={() => { setDateFrom(''); setDateTo(''); }}>Clear</Button>
+            </div>
+
+            {/* Summary */}
+            <div className="flex gap-4 text-xs">
+              <span className="text-muted-foreground">
+                Trades: <span className="text-foreground font-mono font-bold">{closed.length}</span>
+              </span>
+              <span className="text-muted-foreground">
+                P&L: <span className={`font-mono font-bold ${totalPnl >= 0 ? 'text-chart-green' : 'text-chart-red'}`}>
+                  ${totalPnl.toFixed(2)}
+                </span>
+              </span>
+            </div>
+
+            {renderChart()}
+          </div>
+
+          {/* AI Insights Panel */}
+          {showAi && (
+            <div className="rounded-xl border border-border bg-card p-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  <h3 className="font-semibold text-sm">AI Insights</h3>
+                </div>
+                <Button variant="ghost" size="sm" className="text-xs" onClick={() => setShowAi(false)}>סגור</Button>
+              </div>
+              {loadingAi ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground py-8 justify-center">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  מנתח את העסקאות שלך...
+                </div>
+              ) : (
+                <div className="prose prose-sm dark:prose-invert max-w-none text-sm">
+                  <ReactMarkdown>{aiInsights || ''}</ReactMarkdown>
+                </div>
               )}
             </div>
-          </div>
-
-          {/* Summary */}
-          <div className="flex gap-4 text-xs">
-            <span className="text-muted-foreground">
-              Trades: <span className="text-foreground font-mono font-bold">{closed.length}</span>
-            </span>
-            <span className="text-muted-foreground">
-              P&L: <span className={`font-mono font-bold ${totalPnl >= 0 ? 'text-chart-green' : 'text-chart-red'}`}>
-                ${totalPnl.toFixed(2)}
-              </span>
-            </span>
-          </div>
-
-          {renderChart()}
+          )}
         </div>
       </div>
     </div>
