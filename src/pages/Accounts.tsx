@@ -326,6 +326,9 @@ export default function Accounts() {
                       היסטוריה
                     </Button>
                   </div>
+                  <div className="pt-2 border-t border-border">
+                    <StockWatchlist accountId={acc.id} />
+                  </div>
                 </CardContent>
               </Card>
             );

@@ -244,15 +244,8 @@ export default function EconomicCalendar() {
         <p className="text-muted-foreground text-sm">יומן כלכלי — אירועים, חדשות ונתונים חשובים לשוק</p>
       </div>
 
-      {/* Walter Bloomberg Feed */}
-      <div className="rounded-xl border border-border bg-card p-4">
-        <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-[hsl(var(--chart-blue))] animate-pulse" />
-          Walter Bloomberg — חדשות בזמן אמת
-        </h2>
-        <p className="text-xs text-muted-foreground mb-3">@DeItaone — Breaking market news & headlines</p>
-        <div ref={wbRef} className="min-h-[200px] rounded-lg overflow-hidden" />
-      </div>
+      {/* Walter Bloomberg AI News Feed */}
+      <WalterNewsFeed />
 
       {/* TradingView Widget */}
       <div className="rounded-xl border border-border bg-card p-4">
