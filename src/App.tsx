@@ -114,7 +114,7 @@ const App = () => (
                     <Route path="/trade-journal-ai" element={<TradeJournalAI />} />
                     <Route path="/emotions" element={<EmotionTracker />} />
                     <Route path="/weekly-review" element={<WeeklyReview />} />
-                    <Route path="/journal" element={<Journal />} />
+                    <Route path="/journal" element={<MindsetJournal />} />
                     <Route path="/ledger" element={<Ledger />} />
                     <Route path="/risk" element={<RiskEngine />} />
                     <Route path="/calculators" element={<Calculators />} />

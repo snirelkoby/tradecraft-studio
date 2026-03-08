@@ -118,8 +118,8 @@ export default function MindsetJournal() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Mindset Journal</h1>
-          <p className="text-muted-foreground text-sm">יומן מנטלי — עקוב אחרי האנרגיה, הריכוז ומצב הרוח שלך</p>
+          <h1 className="text-2xl font-bold tracking-tight">Daily Journal</h1>
+          <p className="text-muted-foreground text-sm">יומן יומי — מעקב אנרגיה, ריכוז, מצב רוח ותובנות</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon" onClick={() => shiftDate(-1)}><ChevronLeft className="h-4 w-4" /></Button>
