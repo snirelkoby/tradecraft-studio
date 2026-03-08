@@ -28,7 +28,7 @@ const IMPACTS = [
   { value: 'low', label: '🟡 Low', color: 'bg-yellow-500' },
 ];
 
-const CURRENCIES = ['USD', 'EUR', 'GBP', 'JPY', 'CNY', 'AUD', 'CAD', 'CHF'];
+const CURRENCIES = ['USD'];
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -53,9 +53,6 @@ const KEY_EVENTS_TEMPLATE = [
   { title: 'Existing Home Sales', currency: 'USD', impact: 'medium' },
   { title: 'New Home Sales', currency: 'USD', impact: 'medium' },
   { title: 'Durable Goods Orders', currency: 'USD', impact: 'medium' },
-  { title: 'ECB Interest Rate Decision', currency: 'EUR', impact: 'high' },
-  { title: 'BOJ Interest Rate Decision', currency: 'JPY', impact: 'high' },
-  { title: 'BOE Interest Rate Decision', currency: 'GBP', impact: 'high' },
 ];
 
 export default function EconomicCalendar() {
@@ -103,7 +100,7 @@ export default function EconomicCalendar() {
       height: '100%',
       locale: 'en',
       importanceFilter: '-1,0,1',
-      countryFilter: 'us,eu,gb,jp,cn',
+      countryFilter: 'us',
     });
     container.appendChild(script);
     tvRef.current.appendChild(container);
