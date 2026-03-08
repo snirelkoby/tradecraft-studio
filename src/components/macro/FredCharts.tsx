@@ -73,7 +73,7 @@ export function FredCharts() {
           </div>
           <div className="text-right">
             <span className="text-lg font-bold">
-              {chartData[chartData.length - 1].value.toFixed(2)}%
+              {chartData[chartData.length - 1].value.toFixed(2)}{indicator.format === 'percent' ? '%' : ''}
             </span>
             <p className="text-xs text-muted-foreground">
               {formatDate(chartData[chartData.length - 1].date)}
