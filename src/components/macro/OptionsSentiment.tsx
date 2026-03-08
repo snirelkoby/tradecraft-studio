@@ -4,9 +4,10 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { Loader2, TrendingUp, TrendingDown, Minus, ChevronUp, ChevronDown } from 'lucide-react';
+import { Loader2, TrendingUp, TrendingDown, Minus, ChevronUp, ChevronDown, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
+import ReactMarkdown from 'react-markdown';
 
 const SENTIMENT_LEVELS = [
   { value: 'very_bullish', label: 'VERY BULLISH', icon: ChevronUp, color: 'text-chart-green', bg: 'bg-chart-green/20 border-chart-green/50' },
@@ -19,7 +20,7 @@ const SENTIMENT_LEVELS = [
 function getWeekStart(date: Date): string {
   const d = new Date(date);
   const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Monday
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
   d.setDate(diff);
   return d.toISOString().split('T')[0];
 }
@@ -27,7 +28,7 @@ function getWeekStart(date: Date): string {
 function getWeekRange(weekStart: string): string {
   const start = new Date(weekStart);
   const end = new Date(start);
-  end.setDate(end.getDate() + 4); // Friday
+  end.setDate(end.getDate() + 4);
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   return `${months[start.getMonth()]} ${start.getDate()} - ${months[end.getMonth()]} ${end.getDate()}, ${start.getFullYear()}`;
 }
@@ -38,6 +39,8 @@ export function OptionsSentiment() {
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
 
   const weekStart = getWeekStart(new Date());
 
@@ -78,6 +81,68 @@ export function OptionsSentiment() {
     }
   };
 
+  const runAiAnalysis = async () => {
+    setAiLoading(true);
+    setAiAnalysis('');
+
+    try {
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sentiment-ai`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ userNotes: notes, currentSentiment: sentiment }),
+        }
+      );
+
+      if (resp.status === 429) { toast.error('Rate limit - נסה שוב בעוד דקה'); setAiLoading(false); return; }
+      if (resp.status === 402) { toast.error('Payment required'); setAiLoading(false); return; }
+      if (!resp.ok || !resp.body) throw new Error('Failed to start stream');
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let full = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        let idx: number;
+        while ((idx = buffer.indexOf('\n')) !== -1) {
+          let line = buffer.slice(0, idx);
+          buffer = buffer.slice(idx + 1);
+          if (line.endsWith('\r')) line = line.slice(0, -1);
+          if (!line.startsWith('data: ')) continue;
+          const json = line.slice(6).trim();
+          if (json === '[DONE]') break;
+          try {
+            const parsed = JSON.parse(json);
+            const content = parsed.choices?.[0]?.delta?.content;
+            if (content) { full += content; setAiAnalysis(full); }
+          } catch { }
+        }
+      }
+
+      // Extract AI sentiment recommendation
+      const sentimentMatch = full.match(/SENTIMENT_RESULT:\s*(very_bullish|bullish|neutral|bearish|very_bearish)/i);
+      if (sentimentMatch) {
+        const aiSentiment = sentimentMatch[1].toLowerCase();
+        setSentiment(aiSentiment);
+        // Clean the tag from display
+        setAiAnalysis(full.replace(/SENTIMENT_RESULT:\s*\w+/gi, '').trim());
+      }
+    } catch (e: any) {
+      toast.error('AI analysis failed: ' + (e.message || ''));
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   const selectedLevel = SENTIMENT_LEVELS.find(l => l.value === sentiment) || SENTIMENT_LEVELS[2];
 
   if (loading) {
@@ -95,11 +160,30 @@ export function OptionsSentiment() {
           <h3 className="font-semibold">Options Sentiment — השבוע הקרוב</h3>
           <p className="text-xs text-muted-foreground">{getWeekRange(weekStart)}</p>
         </div>
-        <Button onClick={saveSentiment} disabled={saving} variant="secondary" size="sm">
-          {saving && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-          שמור
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button onClick={runAiAnalysis} disabled={aiLoading} variant="outline" size="sm">
+            {aiLoading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Sparkles className="h-4 w-4 mr-1" />}
+            {aiLoading ? 'מנתח...' : 'ניתוח AI'}
+          </Button>
+          <Button onClick={saveSentiment} disabled={saving} variant="secondary" size="sm">
+            {saving && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+            שמור
+          </Button>
+        </div>
       </div>
+
+      {/* AI Analysis Result */}
+      {aiAnalysis && (
+        <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 space-y-2">
+          <div className="flex items-center gap-2 mb-2">
+            <Sparkles className="h-4 w-4 text-primary" />
+            <span className="text-sm font-semibold text-primary">AI Sentiment Analysis</span>
+          </div>
+          <div className="prose prose-sm dark:prose-invert max-w-none text-sm">
+            <ReactMarkdown>{aiAnalysis}</ReactMarkdown>
+          </div>
+        </div>
+      )}
 
       {/* Current selection display */}
       <div className={cn(
@@ -139,10 +223,21 @@ export function OptionsSentiment() {
       <Textarea
         value={notes}
         onChange={(e) => setNotes(e.target.value)}
-        placeholder="הערות על האופציות, GEX, PUT/CALL Ratio, מקסימום כאב..."
+        placeholder="הערות על האופציות, GEX, PUT/CALL Ratio, מקסימום כאב... (ה-AI ישתמש בהערות שלך)"
         className="bg-secondary resize-none"
         rows={3}
       />
+
+      {/* Info about AI factors */}
+      <div className="text-[11px] text-muted-foreground bg-secondary/50 rounded-lg p-3 space-y-1">
+        <p className="font-semibold">ה-AI מנתח את הפרמטרים הבאים:</p>
+        <p>• AAII Investor Sentiment Survey (סקר האגודה למשקיעים פרטיים)</p>
+        <p>• Options Put/Call Ratio (CBOE)</p>
+        <p>• GEX — Gamma Exposure (חשיפת גמא של דילרים)</p>
+        <p>• VIX & Volatility Term Structure</p>
+        <p>• Dark Pool & Institutional Flow</p>
+        <p>• Market Breadth (רוחב שוק)</p>
+      </div>
 
       {/* Sentiment History Chart */}
       <SentimentHistoryChart />
