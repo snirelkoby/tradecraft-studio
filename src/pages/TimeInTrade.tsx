@@ -76,7 +76,7 @@ export default function TimeInTrade() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Card><CardContent className="pt-6 text-center">
           <Clock className="h-5 w-5 mx-auto mb-2 text-primary" />
-          <p className="text-2xl font-bold">{fmtHours(analysis.avgDuration)}</p>
+          <p className="text-2xl font-bold">{fmtMins(analysis.avgDuration)}</p>
           <p className="text-xs text-muted-foreground">Avg Duration</p>
         </CardContent></Card>
         <Card><CardContent className="pt-6 text-center">
