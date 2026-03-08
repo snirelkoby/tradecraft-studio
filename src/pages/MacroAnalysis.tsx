@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { CotHistoryChart } from '@/components/macro/CotHistoryChart';
 import { IndicatorCharts } from '@/components/macro/IndicatorChart';
 import { OptionsSentiment } from '@/components/macro/OptionsSentiment';
+import { FredCharts } from '@/components/macro/FredCharts';
 
 interface Indicator {
   name: string;
@@ -314,6 +315,11 @@ export default function MacroAnalysis() {
       {/* Historical Economic Charts */}
       <div className="rounded-xl border border-border bg-card p-6">
         <IndicatorCharts />
+      </div>
+
+      {/* FRED Rates & Yields */}
+      <div className="rounded-xl border border-border bg-card p-6">
+        <FredCharts />
       </div>
 
       {/* Economic Indicators Manual Input */}
