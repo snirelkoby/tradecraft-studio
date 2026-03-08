@@ -27,8 +27,8 @@ export function TradeDetail({ trade, open, onOpenChange }: TradeDetailProps) {
               {trade.direction === 'long' ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
               {trade.direction.toUpperCase()}
             </Badge>
-            {(trade as any).asset_type && (
-              <Badge variant="outline" className="text-xs">{(trade as any).asset_type}</Badge>
+            {trade.asset_type && (
+              <Badge variant="outline" className="text-xs">{trade.asset_type}</Badge>
             )}
             <Badge variant={trade.status === 'open' ? 'default' : 'secondary'}>{trade.status}</Badge>
           </DialogTitle>
@@ -61,8 +61,16 @@ export function TradeDetail({ trade, open, onOpenChange }: TradeDetailProps) {
             {trade.exit_date && <span>Exit: {format(parseISO(trade.exit_date), 'MMM dd, yyyy HH:mm')}</span>}
           </div>
 
-          {/* TradingView Chart */}
-          <TradingViewWidget symbol={trade.symbol} assetType={(trade as any).asset_type} />
+          {/* TradingView Chart with entry/exit markers */}
+          <TradingViewWidget
+            symbol={trade.symbol}
+            assetType={trade.asset_type ?? undefined}
+            entryPrice={trade.entry_price}
+            exitPrice={trade.exit_price}
+            entryDate={trade.entry_date}
+            exitDate={trade.exit_date}
+            direction={trade.direction}
+          />
 
           {/* Screenshot */}
           <div>

@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useTrades, useDeleteTrade, useBulkDeleteTrades, useDeleteAllTrades } from '@/hooks/useTrades';
+import { useSelectedAccount } from '@/hooks/useSelectedAccount';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -19,10 +20,12 @@ type Trade = Database['public']['Tables']['trades']['Row'];
 
 export default function Trades() {
   const { data: trades, isLoading } = useTrades();
+  const { selectedAccount } = useSelectedAccount();
   const deleteTrade = useDeleteTrade();
   const bulkDelete = useBulkDeleteTrades();
   const deleteAll = useDeleteAllTrades();
   const [formOpen, setFormOpen] = useState(false);
+  const canAddTrade = selectedAccount !== 'all';
   const [selectedTrade, setSelectedTrade] = useState<Trade | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -122,7 +125,9 @@ export default function Trades() {
           <CsvImport />
           <Dialog open={formOpen} onOpenChange={setFormOpen}>
             <DialogTrigger asChild>
-              <Button><Plus className="h-4 w-4 mr-2" />New Trade</Button>
+              <Button disabled={!canAddTrade} title={!canAddTrade ? 'Select a specific account first' : undefined}>
+                <Plus className="h-4 w-4 mr-2" />New Trade
+              </Button>
             </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-card border-border">
               <DialogHeader>
