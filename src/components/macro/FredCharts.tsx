@@ -17,7 +17,7 @@ interface FredIndicator {
   data: DataPoint[];
 }
 
-const FRED_INDICATORS = ['10Y Yield', 'Fed Funds Rate', '2Y Yield', '10Y-2Y Spread', 'DXY'];
+const FRED_INDICATORS = ['10Y Yield', 'Fed Funds Rate', '2Y Yield', '10Y-2Y Spread'];
 
 export function FredCharts() {
   const [data, setData] = useState<Record<string, FredIndicator> | null>(null);
