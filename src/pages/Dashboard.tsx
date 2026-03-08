@@ -237,6 +237,9 @@ export default function Dashboard() {
       {/* Streak Alerts */}
       <StreakAlerts trades={trades ?? []} />
 
+      {/* Position Sizer Widget */}
+      {has('position-sizer') && <PositionSizerWidget />}
+
       {/* Narrower 2-col grid for secondary charts */}
       <div className="grid lg:grid-cols-2 gap-6">
         {has('trade-candles') && (
