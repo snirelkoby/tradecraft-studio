@@ -178,6 +178,7 @@ export default function EconomicCalendar() {
             impact: evt.impact || 'medium',
             forecast: evt.forecast || null,
             previous: evt.previous || null,
+            actual: evt.actual || null,
             notes: 'ייובא אוטומטית ע״י AI',
           } as any);
         }
