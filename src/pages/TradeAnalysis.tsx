@@ -575,15 +575,13 @@ export default function TradeAnalysis() {
             ))}
           </div>
 
-          {/* AI Insights Button */}
+          {/* AI Insights Link */}
           <Button
-            onClick={fetchAiInsights}
-            disabled={loadingAi || closed.length === 0}
+            onClick={() => navigate('/ai-insights')}
             className="w-full gap-2"
             variant="outline"
           >
-            {loadingAi ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-            AI Insights
+            AI Insights →
           </Button>
 
           {/* Export Button */}
