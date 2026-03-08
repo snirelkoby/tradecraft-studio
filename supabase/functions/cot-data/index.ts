@@ -97,17 +97,43 @@ serve(async (req) => {
       const openInterest = parseInt(latest.open_interest_all) || 0;
       const reportDate = latest.report_date_as_yyyy_mm_dd.split("T")[0];
 
+      // Sentiment logic:
+      // Opening longs (longChange > 0) = bullish signal
+      // Closing longs (longChange < 0) = bearish signal
+      // Opening shorts (shortChange > 0) = bearish signal
+      // Closing shorts (shortChange < 0) = bullish signal
+      // Net change = longChange - shortChange (positive = bullish shift)
       let sentiment: string;
       let weeklyShift: string;
 
-      if (netChange > 0) weeklyShift = "more_bullish";
-      else if (netChange < 0) weeklyShift = "more_bearish";
+      // Weekly shift based on positioning changes
+      // Bullish: adding longs OR closing shorts
+      // Bearish: closing longs OR adding shorts
+      const bullishPressure = Math.max(ncLongChange, 0) + Math.abs(Math.min(ncShortChange, 0));
+      const bearishPressure = Math.abs(Math.min(ncLongChange, 0)) + Math.max(ncShortChange, 0);
+      
+      if (bullishPressure > bearishPressure * 1.1) weeklyShift = "more_bullish";
+      else if (bearishPressure > bullishPressure * 1.1) weeklyShift = "more_bearish";
       else weeklyShift = "unchanged";
 
       if (netPosition > 0) {
-        sentiment = netChange < 0 ? "weakening_bullish" : "bullish";
+        // Net long - check if weakening
+        if (ncLongChange < 0 && ncShortChange > 0) {
+          sentiment = "weakening_bullish"; // closing longs AND opening shorts
+        } else if (ncLongChange < -5000 || ncShortChange > 5000) {
+          sentiment = "weakening_bullish"; // significant closing longs or opening shorts
+        } else {
+          sentiment = "bullish";
+        }
       } else if (netPosition < 0) {
-        sentiment = netChange > 0 ? "weakening_bearish" : "bearish";
+        // Net short - check if weakening
+        if (ncShortChange < 0 && ncLongChange > 0) {
+          sentiment = "weakening_bearish"; // closing shorts AND opening longs
+        } else if (ncShortChange < -5000 || ncLongChange > 5000) {
+          sentiment = "weakening_bearish"; // significant closing shorts or opening longs
+        } else {
+          sentiment = "bearish";
+        }
       } else {
         sentiment = "neutral";
       }
