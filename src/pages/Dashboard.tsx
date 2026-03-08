@@ -72,11 +72,29 @@ export default function Dashboard() {
     .filter((t) => t.status === 'closed' && t.pnl !== null)
     .sort((a, b) => new Date(a.entry_date).getTime() - new Date(b.entry_date).getTime());
 
+  // Per-trade cumulative
   let cumPnl = 0;
-  const cumData = closed.map((t) => {
+  const cumDataPerTrade = closed.map((t, i) => {
     cumPnl += t.pnl ?? 0;
-    return { date: format(parseISO(t.entry_date), 'MMM dd'), pnl: cumPnl };
+    return { label: `#${i + 1}`, date: format(parseISO(t.entry_date), 'MMM dd'), pnl: cumPnl };
   });
+
+  // Per-day cumulative
+  const dailyCumMap = new Map<string, number>();
+  closed.forEach((t) => {
+    const d = format(parseISO(t.entry_date), 'yyyy-MM-dd');
+    dailyCumMap.set(d, (dailyCumMap.get(d) ?? 0) + (t.pnl ?? 0));
+  });
+  let dayCum = 0;
+  const cumDataPerDay = Array.from(dailyCumMap.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, pnl]) => {
+      dayCum += pnl;
+      return { label: format(parseISO(date), 'MMM dd'), date: format(parseISO(date), 'MMM dd'), pnl: dayCum };
+    });
+
+  const [cumMode, setCumMode] = useState<'trade' | 'day'>('trade');
+  const cumData = cumMode === 'trade' ? cumDataPerTrade : cumDataPerDay;
 
   const dailyMap = new Map<string, number>();
   closed.forEach((t) => {
