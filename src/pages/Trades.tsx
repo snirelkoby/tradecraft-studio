@@ -197,6 +197,7 @@ export default function Trades() {
         </TabsList>
 
         <TabsContent value="trades">
+      <div className="rounded-xl border border-border bg-card overflow-hidden">
         {isLoading ? (
           <p className="text-center py-12 text-muted-foreground">Loading...</p>
         ) : !filtered.length ? (
@@ -216,6 +217,7 @@ export default function Trades() {
                   <TableHead className="text-muted-foreground">Entry</TableHead>
                   <TableHead className="text-muted-foreground">Exit</TableHead>
                   <TableHead className="text-muted-foreground">P&L</TableHead>
+                  <TableHead className="text-muted-foreground">Tags</TableHead>
                   <TableHead className="text-muted-foreground">Strategy</TableHead>
                   <TableHead className="text-muted-foreground">Status</TableHead>
                   <TableHead></TableHead>
@@ -245,6 +247,13 @@ export default function Trades() {
                         </span>
                       ) : '—'}
                     </TableCell>
+                    <TableCell onClick={() => { setSelectedTrade(t); setDetailOpen(true); }}>
+                      <div className="flex gap-1 flex-wrap">
+                        {(t.tags ?? []).map(tag => (
+                          <Badge key={tag} variant="secondary" className="text-[10px] bg-primary/10 text-primary">{tag}</Badge>
+                        ))}
+                      </div>
+                    </TableCell>
                     <TableCell onClick={() => { setSelectedTrade(t); setDetailOpen(true); }}>{t.strategy && <Badge variant="secondary" className="text-xs">{t.strategy}</Badge>}</TableCell>
                     <TableCell onClick={() => { setSelectedTrade(t); setDetailOpen(true); }}><Badge variant={t.status === 'open' ? 'default' : 'secondary'} className="text-xs">{t.status}</Badge></TableCell>
                     <TableCell>
@@ -264,6 +273,15 @@ export default function Trades() {
           </div>
         )}
       </div>
+        </TabsContent>
+
+        <TabsContent value="tag-performance">
+          <div className="rounded-xl border border-border bg-card p-5">
+            <h3 className="text-sm font-semibold mb-4 text-muted-foreground uppercase tracking-wider">Performance by Tag</h3>
+            <TagPerformance trades={trades ?? []} />
+          </div>
+        </TabsContent>
+      </Tabs>
 
       <TradeDetail trade={selectedTrade} open={detailOpen} onOpenChange={setDetailOpen} />
     </div>
