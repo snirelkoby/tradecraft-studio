@@ -111,6 +111,8 @@ const App = () => (
                     <Route path="/consecutive-loss" element={<ConsecutiveLoss />} />
                     <Route path="/optimal-session" element={<OptimalSession />} />
                     <Route path="/compounding" element={<CompoundingSim />} />
+                    <Route path="/trade-journal-ai" element={<TradeJournalAI />} />
+                    <Route path="/emotions" element={<EmotionTracker />} />
                     <Route path="/weekly-review" element={<WeeklyReview />} />
                     <Route path="/journal" element={<Journal />} />
                     <Route path="/ledger" element={<Ledger />} />
