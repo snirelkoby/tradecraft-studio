@@ -182,7 +182,7 @@ export default function MacroAnalysis() {
                   </div>
                   <div className="flex items-center gap-2">
                     {getSentimentIcon(data.sentiment)}
-                    <span className={`text-sm font-medium ${data.sentiment === 'bullish' ? 'text-green-500' : data.sentiment === 'bearish' ? 'text-red-500' : 'text-muted-foreground'}`}>
+                    <span className={`text-sm font-medium ${data.sentiment === 'bullish' ? 'text-primary' : data.sentiment === 'bearish' ? 'text-destructive' : 'text-muted-foreground'}`}>
                       {data.sentiment.toUpperCase()}
                     </span>
                   </div>
