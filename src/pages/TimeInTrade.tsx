@@ -81,7 +81,7 @@ export default function TimeInTrade() {
         </CardContent></Card>
         <Card><CardContent className="pt-6 text-center">
           <TrendingUp className="h-5 w-5 mx-auto mb-2 text-green-500" />
-          <p className="text-2xl font-bold">{fmtHours(analysis.winAvgDuration)}</p>
+          <p className="text-2xl font-bold">{fmtMins(analysis.winAvgDuration)}</p>
           <p className="text-xs text-muted-foreground">Avg Win Duration</p>
         </CardContent></Card>
         <Card><CardContent className="pt-6 text-center">
