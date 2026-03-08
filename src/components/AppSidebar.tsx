@@ -1,6 +1,6 @@
 import {
   BarChart3, BookOpen, Calendar, FileText, PenTool,
-  Calculator, Settings, LogOut, Notebook, FlaskConical, Wallet, CandlestickChart, Sparkles, Globe
+  Calculator, Settings, LogOut, Notebook, FlaskConical, Wallet, CandlestickChart, Sparkles, Globe, CalendarClock
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/hooks/useAuth';
