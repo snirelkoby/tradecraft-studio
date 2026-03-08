@@ -16,11 +16,10 @@ export default function TimeInTrade() {
 
     const points = closed.map(t => {
       const mins = differenceInMinutes(new Date(t.exit_date!), new Date(t.entry_date));
-      const hours = mins / 60;
       return {
         symbol: t.symbol,
-        duration: hours,
-        durationLabel: hours < 1 ? `${mins}m` : hours < 24 ? `${hours.toFixed(1)}h` : `${(hours / 24).toFixed(1)}d`,
+        duration: mins,
+        durationLabel: mins < 60 ? `${mins}m` : mins < 1440 ? `${(mins / 60).toFixed(1)}h` : `${(mins / 1440).toFixed(1)}d`,
         pnl: t.pnl ?? 0,
         strategy: t.strategy ?? 'N/A',
         win: (t.pnl ?? 0) > 0,
@@ -29,11 +28,12 @@ export default function TimeInTrade() {
 
     // Stats by duration bucket
     const buckets = [
-      { label: '< 15m', min: 0, max: 0.25 },
-      { label: '15m–1h', min: 0.25, max: 1 },
-      { label: '1h–4h', min: 1, max: 4 },
-      { label: '4h–1d', min: 4, max: 24 },
-      { label: '1d+', min: 24, max: Infinity },
+      { label: '< 5m', min: 0, max: 5 },
+      { label: '5–15m', min: 5, max: 15 },
+      { label: '15–30m', min: 15, max: 30 },
+      { label: '30–60m', min: 30, max: 60 },
+      { label: '1h–4h', min: 60, max: 240 },
+      { label: '4h+', min: 240, max: Infinity },
     ];
 
     const bucketStats = buckets.map(b => {
@@ -58,7 +58,7 @@ export default function TimeInTrade() {
     return { points, bucketStats, avgDuration, winAvgDuration, lossAvgDuration };
   }, [trades]);
 
-  const fmtHours = (h: number) => h < 1 ? `${(h * 60).toFixed(0)}m` : h < 24 ? `${h.toFixed(1)}h` : `${(h / 24).toFixed(1)}d`;
+  const fmtMins = (m: number) => m < 60 ? `${m.toFixed(0)}m` : m < 1440 ? `${(m / 60).toFixed(1)}h` : `${(m / 1440).toFixed(1)}d`;
 
   if (!analysis) {
     return (
@@ -76,17 +76,17 @@ export default function TimeInTrade() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Card><CardContent className="pt-6 text-center">
           <Clock className="h-5 w-5 mx-auto mb-2 text-primary" />
-          <p className="text-2xl font-bold">{fmtHours(analysis.avgDuration)}</p>
+          <p className="text-2xl font-bold">{fmtMins(analysis.avgDuration)}</p>
           <p className="text-xs text-muted-foreground">Avg Duration</p>
         </CardContent></Card>
         <Card><CardContent className="pt-6 text-center">
           <TrendingUp className="h-5 w-5 mx-auto mb-2 text-green-500" />
-          <p className="text-2xl font-bold">{fmtHours(analysis.winAvgDuration)}</p>
+          <p className="text-2xl font-bold">{fmtMins(analysis.winAvgDuration)}</p>
           <p className="text-xs text-muted-foreground">Avg Win Duration</p>
         </CardContent></Card>
         <Card><CardContent className="pt-6 text-center">
           <Timer className="h-5 w-5 mx-auto mb-2 text-destructive" />
-          <p className="text-2xl font-bold">{fmtHours(analysis.lossAvgDuration)}</p>
+          <p className="text-2xl font-bold">{fmtMins(analysis.lossAvgDuration)}</p>
           <p className="text-xs text-muted-foreground">Avg Loss Duration</p>
         </CardContent></Card>
         <Card><CardContent className="pt-6 text-center">
@@ -102,11 +102,11 @@ export default function TimeInTrade() {
           <ResponsiveContainer width="100%" height={350}>
             <ScatterChart>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis type="number" dataKey="duration" name="Duration (hrs)" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} label={{ value: 'Duration (hours)', position: 'insideBottom', offset: -5, style: { fill: 'hsl(var(--muted-foreground))', fontSize: 11 } }} />
+              <XAxis type="number" dataKey="duration" name="Duration (min)" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} label={{ value: 'Duration (minutes)', position: 'insideBottom', offset: -5, style: { fill: 'hsl(var(--muted-foreground))', fontSize: 11 } }} />
               <YAxis type="number" dataKey="pnl" name="P&L" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} label={{ value: 'P&L ($)', angle: -90, position: 'insideLeft', style: { fill: 'hsl(var(--muted-foreground))', fontSize: 11 } }} />
               <Tooltip
                 contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, color: 'hsl(var(--foreground))' }}
-                formatter={(val: number, name: string) => [name === 'P&L' ? `$${val.toFixed(2)}` : `${val.toFixed(1)}h`, name]}
+                formatter={(val: number, name: string) => [name === 'P&L' ? `$${val.toFixed(2)}` : `${val.toFixed(0)}m`, name]}
               />
               <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" />
               <Scatter data={analysis.points} name="Trades">

@@ -20,7 +20,7 @@ import RiskEngine from "./pages/RiskEngine";
 import Calculators from "./pages/Calculators";
 import MacroAnalysis from "./pages/MacroAnalysis";
 import EconomicCalendar from "./pages/EconomicCalendar";
-import Journal from "./pages/Journal";
+// Journal removed - merged into MindsetJournal (now Daily Journal)
 import Accounts from "./pages/Accounts";
 import SettingsPage from "./pages/Settings";
 import WeeklyReview from "./pages/WeeklyReview";
@@ -114,7 +114,7 @@ const App = () => (
                     <Route path="/trade-journal-ai" element={<TradeJournalAI />} />
                     <Route path="/emotions" element={<EmotionTracker />} />
                     <Route path="/weekly-review" element={<WeeklyReview />} />
-                    <Route path="/journal" element={<Journal />} />
+                    <Route path="/journal" element={<MindsetJournal />} />
                     <Route path="/ledger" element={<Ledger />} />
                     <Route path="/risk" element={<RiskEngine />} />
                     <Route path="/calculators" element={<Calculators />} />
