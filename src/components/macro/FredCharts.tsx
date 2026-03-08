@@ -17,7 +17,7 @@ interface FredIndicator {
   data: DataPoint[];
 }
 
-const FRED_INDICATORS = ['10Y Yield', 'Fed Funds Rate', '2Y Yield', '10Y-2Y Spread'];
+const FRED_INDICATORS = ['10Y Yield', 'Fed Funds Rate', '2Y Yield', '10Y-2Y Spread', 'DXY'];
 
 export function FredCharts() {
   const [data, setData] = useState<Record<string, FredIndicator> | null>(null);
@@ -73,7 +73,7 @@ export function FredCharts() {
           </div>
           <div className="text-right">
             <span className="text-lg font-bold">
-              {chartData[chartData.length - 1].value.toFixed(2)}%
+              {chartData[chartData.length - 1].value.toFixed(2)}{indicator.format === 'percent' ? '%' : ''}
             </span>
             <p className="text-xs text-muted-foreground">
               {formatDate(chartData[chartData.length - 1].date)}
@@ -86,12 +86,12 @@ export function FredCharts() {
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
             <XAxis dataKey="date" tickFormatter={formatDate} tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
             <YAxis
-              tickFormatter={v => `${v}%`}
+              tickFormatter={v => indicator.format === 'percent' ? `${v}%` : `${v}`}
               tick={{ fontSize: 10 }}
               stroke="hsl(var(--muted-foreground))"
             />
             <Tooltip
-              formatter={(value: number) => [`${value.toFixed(2)}%`, name]}
+              formatter={(value: number) => [`${value.toFixed(2)}${indicator.format === 'percent' ? '%' : ''}`, name]}
               labelFormatter={formatDate}
               contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }}
             />

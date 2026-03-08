@@ -193,7 +193,7 @@ export default function MacroAnalysis() {
   };
 
   const getSentimentIcon = (sentiment: string) => {
-    if (sentiment === 'bullish') return <TrendingUp className="h-5 w-5 text-chart-green" />;
+    if (sentiment === 'bullish' || sentiment === 'shifting_bullish') return <TrendingUp className="h-5 w-5 text-chart-green" />;
     if (sentiment === 'weakening_bullish') return <AlertTriangle className="h-5 w-5 text-yellow-500" />;
     if (sentiment === 'bearish') return <TrendingDown className="h-5 w-5 text-chart-red" />;
     if (sentiment === 'weakening_bearish') return <AlertTriangle className="h-5 w-5 text-yellow-500" />;
@@ -201,13 +201,14 @@ export default function MacroAnalysis() {
   };
 
   const getSentimentLabel = (sentiment: string) => {
+    if (sentiment === 'shifting_bullish') return 'SHIFTING BULLISH ↑';
     if (sentiment === 'weakening_bullish') return 'WEAKENING BULLISH';
     if (sentiment === 'weakening_bearish') return 'WEAKENING BEARISH';
     return sentiment.toUpperCase();
   };
 
   const getSentimentColor = (sentiment: string) => {
-    if (sentiment === 'bullish') return 'text-chart-green';
+    if (sentiment === 'bullish' || sentiment === 'shifting_bullish') return 'text-chart-green';
     if (sentiment === 'bearish') return 'text-chart-red';
     if (sentiment.includes('weakening')) return 'text-yellow-500';
     return 'text-muted-foreground';
