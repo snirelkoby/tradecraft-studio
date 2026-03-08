@@ -227,6 +227,10 @@ export function TradeForm({ onSuccess }: TradeFormProps) {
         </div>
       </div>
       <div>
+        <label className="text-xs text-muted-foreground uppercase mb-1 block">Tags (Blueprint/Setup)</label>
+        <TagInput tags={tags} onChange={setTags} suggestions={allTags} />
+      </div>
+      <div>
         <label className="text-xs text-muted-foreground uppercase mb-1 block">Notes</label>
         <Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} className="bg-secondary" rows={3} />
       </div>
