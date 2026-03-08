@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { FUTURES_CONFIG } from '@/lib/assetConfig';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -182,13 +183,18 @@ function parseRithmic(text: string, userId: string) {
       const entryTime = buyFirst ? buy.time : sell.time;
       const exitTime = buyFirst ? sell.time : buy.time;
 
+      // Use FUTURES_CONFIG for accurate P&L calculation
+      const cleanSymbol = symbol.replace(/[A-Z]\d$/, ''); // Strip contract month
+      const futConfig = FUTURES_CONFIG.find(f => cleanSymbol.startsWith(f.symbol));
+      const pointValue = futConfig ? futConfig.tickValue / futConfig.tickSize : 20; // fallback $20/point
+
       const rawPnl = direction === 'long'
-        ? (exitPrice - entryPrice) * matchQty * 20 // NQ tick value approximation: $20/point
-        : (entryPrice - exitPrice) * matchQty * 20;
+        ? (exitPrice - entryPrice) * matchQty * pointValue
+        : (entryPrice - exitPrice) * matchQty * pointValue;
 
       trades.push({
         user_id: userId,
-        symbol: symbol.replace(/[A-Z]\d$/, ''), // Strip contract month (NQH6 -> NQ)
+        symbol: cleanSymbol,
         direction,
         entry_date: new Date(entryTime).toISOString(),
         exit_date: new Date(exitTime).toISOString(),

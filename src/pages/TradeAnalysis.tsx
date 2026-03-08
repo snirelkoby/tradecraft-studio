@@ -4,8 +4,8 @@ import { useSelectedAccount } from '@/hooks/useSelectedAccount';
 import { format, parseISO, isAfter, isBefore } from 'date-fns';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Download, Sparkles, Loader2 } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
+import { Download } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 import {
   ResponsiveContainer, ComposedChart, Bar, XAxis, YAxis,
@@ -126,9 +126,7 @@ export default function TradeAnalysis() {
   const [dateTo, setDateTo] = useState('');
   const [yahooData, setYahooData] = useState<Record<string, YahooResult | null>>({});
   const [loadingYahoo, setLoadingYahoo] = useState(false);
-  const [aiInsights, setAiInsights] = useState<string | null>(null);
-  const [loadingAi, setLoadingAi] = useState(false);
-  const [showAi, setShowAi] = useState(false);
+  const navigate = useNavigate();
 
   const closed = useMemo(() => {
     return (trades ?? [])
@@ -381,23 +379,6 @@ export default function TradeAnalysis() {
     );
   };
 
-  // AI insights handler
-  const fetchAiInsights = async () => {
-    setLoadingAi(true);
-    setShowAi(true);
-    setAiInsights(null);
-    try {
-      const { data, error } = await supabase.functions.invoke('trade-insights', {
-        body: { trades: closed },
-      });
-      if (error) throw error;
-      setAiInsights(data.insights || data.error || 'No insights.');
-    } catch (e: any) {
-      setAiInsights('שגיאה בטעינת תובנות: ' + (e.message || 'Unknown error'));
-    } finally {
-      setLoadingAi(false);
-    }
-  };
 
   const renderCandlestickChart = () => {
     if (candleData.length === 0) {
@@ -594,15 +575,13 @@ export default function TradeAnalysis() {
             ))}
           </div>
 
-          {/* AI Insights Button */}
+          {/* AI Insights Link */}
           <Button
-            onClick={fetchAiInsights}
-            disabled={loadingAi || closed.length === 0}
+            onClick={() => navigate('/ai-insights')}
             className="w-full gap-2"
             variant="outline"
           >
-            {loadingAi ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-            AI Insights
+            AI Insights →
           </Button>
 
           {/* Export Button */}
@@ -678,28 +657,6 @@ export default function TradeAnalysis() {
             {renderChart()}
           </div>
 
-          {/* AI Insights Panel */}
-          {showAi && (
-            <div className="rounded-xl border border-border bg-card p-5 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-primary" />
-                  <h3 className="font-semibold text-sm">AI Insights</h3>
-                </div>
-                <Button variant="ghost" size="sm" className="text-xs" onClick={() => setShowAi(false)}>סגור</Button>
-              </div>
-              {loadingAi ? (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground py-8 justify-center">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  מנתח את העסקאות שלך...
-                </div>
-              ) : (
-                <div className="prose prose-sm dark:prose-invert max-w-none text-sm">
-                  <ReactMarkdown>{aiInsights || ''}</ReactMarkdown>
-                </div>
-              )}
-            </div>
-          )}
         </div>
       </div>
     </div>
