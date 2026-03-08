@@ -5,160 +5,118 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Use Treasury.gov and alternative free APIs
-const SERIES: Record<string, { label: string; format: string; source: string; url: string }> = {
-  "10Y Yield": {
-    label: "10-Year Treasury Yield",
-    format: "percent",
-    source: "treasury",
-    url: "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/daily-treasury-rates.csv/all/{YEAR}?type=daily_treasury_yield_curve&field_tdr_date_value={YEAR}&page&_format=csv",
-  },
-  "2Y Yield": {
-    label: "2-Year Treasury Yield",
-    format: "percent",
-    source: "treasury",
-    url: "",
-  },
-  "Fed Funds Rate": {
-    label: "Effective Federal Funds Rate",
-    format: "percent",
-    source: "fed",
-    url: "https://markets.newyorkfed.org/api/rates/effr/search.json",
-  },
-};
-
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
     const results: Record<string, any> = {};
-
     const now = new Date();
     const twoYearsAgo = new Date(now);
     twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
 
-    // Fetch Treasury yield curve data (contains 2Y and 10Y)
-    const years = [now.getFullYear(), now.getFullYear() - 1, now.getFullYear() - 2];
-    const uniqueYears = [...new Set(years)];
-    
-    const allTreasuryData: { date: string; y10: number; y2: number }[] = [];
-
-    const treasuryFetches = uniqueYears.map(async (year) => {
-      const url = `https://home.treasury.gov/resource-center/data-chart-center/interest-rates/daily-treasury-rates.csv/all/${year}?type=daily_treasury_yield_curve&field_tdr_date_value=${year}&page&_format=csv`;
+    // 1) Treasury yields from data.treasury.gov OData API
+    const treasuryFetch = (async () => {
       try {
+        const startYear = twoYearsAgo.getFullYear();
+        const url = `https://data.treasury.gov/feed.svc/DailyTreasuryYieldCurveRateData?$filter=year(NEW_DATE) ge ${startYear}&$orderby=NEW_DATE asc&$format=json`;
+        console.log("Fetching Treasury:", url);
         const resp = await fetch(url);
         if (!resp.ok) {
-          console.error(`Treasury error for ${year}: ${resp.status}`);
+          console.error(`Treasury API error: ${resp.status}`);
+          const body = await resp.text();
+          console.error("Treasury body:", body.slice(0, 500));
           return;
         }
-        const text = await resp.text();
-        const lines = text.trim().split("\n");
-        if (lines.length < 2) return;
-        
-        const headers = lines[0].split(",").map(h => h.trim().replace(/"/g, ''));
-        const dateIdx = headers.findIndex(h => h === "Date");
-        const y2Idx = headers.findIndex(h => h === "2 Yr");
-        const y10Idx = headers.findIndex(h => h === "10 Yr");
-        
-        for (let i = 1; i < lines.length; i++) {
-          const cols = lines[i].split(",").map(c => c.trim().replace(/"/g, ''));
-          const dateStr = cols[dateIdx];
-          if (!dateStr) continue;
-          
-          // Parse MM/DD/YYYY format
-          const parts = dateStr.split("/");
-          if (parts.length !== 3) continue;
-          const isoDate = `${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
-          
-          const y2 = parseFloat(cols[y2Idx]);
-          const y10 = parseFloat(cols[y10Idx]);
-          
-          if (!isNaN(y10) || !isNaN(y2)) {
-            allTreasuryData.push({ date: isoDate, y10, y2 });
+        const data = await resp.json();
+        const entries = data?.d?.results || data?.value || [];
+        console.log(`Treasury: got ${entries.length} entries`);
+
+        const y10Points: { date: string; value: number }[] = [];
+        const y2Points: { date: string; value: number }[] = [];
+        const spreadPoints: { date: string; value: number }[] = [];
+
+        for (const entry of entries) {
+          // OData format: NEW_DATE is like "/Date(1234567890000)/" or ISO string
+          let dateStr: string;
+          const rawDate = entry.NEW_DATE;
+          if (typeof rawDate === "string" && rawDate.includes("/Date(")) {
+            const ms = parseInt(rawDate.match(/\d+/)?.[0] || "0");
+            dateStr = new Date(ms).toISOString().split("T")[0];
+          } else if (typeof rawDate === "string") {
+            dateStr = new Date(rawDate).toISOString().split("T")[0];
+          } else {
+            continue;
+          }
+
+          const y2 = parseFloat(entry.BC_2YEAR);
+          const y10 = parseFloat(entry.BC_10YEAR);
+
+          if (!isNaN(y10)) y10Points.push({ date: dateStr, value: y10 });
+          if (!isNaN(y2)) y2Points.push({ date: dateStr, value: y2 });
+          if (!isNaN(y10) && !isNaN(y2)) {
+            spreadPoints.push({ date: dateStr, value: parseFloat((y10 - y2).toFixed(3)) });
           }
         }
-      } catch (e) {
-        console.error(`Treasury fetch error for ${year}:`, e);
-      }
-    });
 
-    // Fetch Fed Funds Rate from NY Fed
+        if (y10Points.length > 0) {
+          results["10Y Yield"] = { label: "10-Year Treasury Yield", format: "percent", frequency: "daily", data: sampleWeekly(y10Points) };
+        }
+        if (y2Points.length > 0) {
+          results["2Y Yield"] = { label: "2-Year Treasury Yield", format: "percent", frequency: "daily", data: sampleWeekly(y2Points) };
+        }
+        if (spreadPoints.length > 0) {
+          results["10Y-2Y Spread"] = { label: "10Y-2Y Treasury Spread", format: "percent", frequency: "daily", data: sampleWeekly(spreadPoints) };
+        }
+      } catch (e) {
+        console.error("Treasury fetch error:", e);
+      }
+    })();
+
+    // 2) Fed Funds Rate from NY Fed API
     const fedFetch = (async () => {
       try {
         const startDate = twoYearsAgo.toISOString().split("T")[0];
         const endDate = now.toISOString().split("T")[0];
+        // NY Fed API uses YYYY-MM-DD
         const url = `https://markets.newyorkfed.org/api/rates/effr/search.json?startDate=${startDate}&endDate=${endDate}`;
-        const resp = await fetch(url);
+        console.log("Fetching Fed Funds:", url);
+        const resp = await fetch(url, {
+          headers: { "Accept": "application/json" },
+        });
         if (!resp.ok) {
           console.error(`NY Fed error: ${resp.status}`);
+          // Try alternative: use text and parse
+          const body = await resp.text();
+          console.error("NY Fed body:", body.slice(0, 300));
           return;
         }
         const data = await resp.json();
         const rates = data?.refRates || [];
+        console.log(`Fed Funds: got ${rates.length} rates`);
         const points = rates
-          .map((r: any) => ({
-            date: r.effectiveDate,
-            value: parseFloat(r.percentRate),
-          }))
+          .map((r: any) => ({ date: r.effectiveDate, value: parseFloat(r.percentRate) }))
           .filter((p: any) => !isNaN(p.value));
-
-        // Sample to weekly
-        const sampled = sampleWeekly(points);
-        results["Fed Funds Rate"] = {
-          label: "Effective Federal Funds Rate",
-          format: "percent",
-          frequency: "daily",
-          data: sampled,
-        };
+        if (points.length > 0) {
+          results["Fed Funds Rate"] = { label: "Effective Federal Funds Rate", format: "percent", frequency: "daily", data: sampleWeekly(points) };
+        }
       } catch (e) {
         console.error("Fed Funds fetch error:", e);
       }
     })();
 
-    await Promise.all([...treasuryFetches, fedFetch]);
-
-    // Process treasury data
-    allTreasuryData.sort((a, b) => a.date.localeCompare(b.date));
-    
-    // Filter to 2 years
-    const startStr = twoYearsAgo.toISOString().split("T")[0];
-    const filtered = allTreasuryData.filter(d => d.date >= startStr);
-
-    if (filtered.length > 0) {
-      const y10Points = filtered.filter(d => !isNaN(d.y10)).map(d => ({ date: d.date, value: d.y10 }));
-      const y2Points = filtered.filter(d => !isNaN(d.y2)).map(d => ({ date: d.date, value: d.y2 }));
-      const spreadPoints = filtered
-        .filter(d => !isNaN(d.y10) && !isNaN(d.y2))
-        .map(d => ({ date: d.date, value: parseFloat((d.y10 - d.y2).toFixed(3)) }));
-
-      results["10Y Yield"] = {
-        label: "10-Year Treasury Yield",
-        format: "percent",
-        frequency: "daily",
-        data: sampleWeekly(y10Points),
-      };
-      results["2Y Yield"] = {
-        label: "2-Year Treasury Yield",
-        format: "percent",
-        frequency: "daily",
-        data: sampleWeekly(y2Points),
-      };
-      results["10Y-2Y Spread"] = {
-        label: "10Y-2Y Treasury Spread",
-        format: "percent",
-        frequency: "daily",
-        data: sampleWeekly(spreadPoints),
-      };
-    }
-
-    // Fetch DXY from Yahoo Finance
-    try {
-      const twoYearsAgoTs = Math.floor(twoYearsAgo.getTime() / 1000);
-      const nowTs = Math.floor(now.getTime() / 1000);
-      const dxyUrl = `https://query1.finance.yahoo.com/v8/finance/chart/DX-Y.NYB?period1=${twoYearsAgoTs}&period2=${nowTs}&interval=1wk`;
-      const dxyResp = await fetch(dxyUrl, { headers: { "User-Agent": "Mozilla/5.0" } });
-      if (dxyResp.ok) {
-        const dxyJson = await dxyResp.json();
+    // 3) DXY from Yahoo Finance
+    const dxyFetch = (async () => {
+      try {
+        const twoYearsAgoTs = Math.floor(twoYearsAgo.getTime() / 1000);
+        const nowTs = Math.floor(now.getTime() / 1000);
+        const url = `https://query1.finance.yahoo.com/v8/finance/chart/DX-Y.NYB?period1=${twoYearsAgoTs}&period2=${nowTs}&interval=1wk`;
+        const resp = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
+        if (!resp.ok) {
+          console.error(`DXY error: ${resp.status}`);
+          await resp.text();
+          return;
+        }
+        const dxyJson = await resp.json();
         const dxyResult = dxyJson?.chart?.result?.[0];
         const timestamps = dxyResult?.timestamp || [];
         const closes = dxyResult?.indicators?.quote?.[0]?.close || [];
@@ -166,26 +124,20 @@ serve(async (req) => {
         for (let i = 0; i < timestamps.length; i++) {
           if (closes[i] != null) {
             const d = new Date(timestamps[i] * 1000);
-            dxyPoints.push({
-              date: d.toISOString().split("T")[0],
-              value: parseFloat(closes[i].toFixed(2)),
-            });
+            dxyPoints.push({ date: d.toISOString().split("T")[0], value: parseFloat(closes[i].toFixed(2)) });
           }
         }
         if (dxyPoints.length > 0) {
-          results["DXY"] = {
-            label: "US Dollar Index",
-            format: "index",
-            frequency: "weekly",
-            data: dxyPoints,
-          };
+          results["DXY"] = { label: "US Dollar Index", format: "index", frequency: "weekly", data: dxyPoints };
         }
+      } catch (e) {
+        console.error("DXY fetch error:", e);
       }
-    } catch (e) {
-      console.error("DXY fetch error:", e);
-    }
+    })();
 
-    console.log(`Returning ${Object.keys(results).length} indicators`);
+    await Promise.all([treasuryFetch, fedFetch, dxyFetch]);
+
+    console.log(`Returning ${Object.keys(results).length} indicators: ${Object.keys(results).join(", ")}`);
 
     return new Response(JSON.stringify({ success: true, data: results }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
