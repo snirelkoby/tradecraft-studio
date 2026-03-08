@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { Plus, Trash2, ChevronLeft, ChevronRight, Loader2, Download } from 'lucide-react';
 import { format, startOfWeek, addWeeks, subWeeks, addDays } from 'date-fns';
+import { WalterNewsFeed } from '@/components/WalterNewsFeed';
 
 interface EconomicEvent {
   id: string;
@@ -65,7 +66,7 @@ export default function EconomicCalendar() {
   const [fetchingNews, setFetchingNews] = useState(false);
   const [form, setForm] = useState({ event_date: format(new Date(), 'yyyy-MM-dd'), event_time: '', title: '', currency: 'USD', impact: 'high', forecast: '', actual: '', previous: '', notes: '' });
   const tvRef = useRef<HTMLDivElement>(null);
-  const wbRef = useRef<HTMLDivElement>(null);
+  
 
   const weekEnd = addDays(weekStart, 6);
 
@@ -106,26 +107,6 @@ export default function EconomicCalendar() {
     tvRef.current.appendChild(container);
   }, []);
 
-  // Walter Bloomberg Twitter Embed
-  useEffect(() => {
-    if (!wbRef.current) return;
-    wbRef.current.innerHTML = '';
-    
-    const anchor = document.createElement('a');
-    anchor.className = 'twitter-timeline';
-    anchor.setAttribute('data-theme', 'dark');
-    anchor.setAttribute('data-height', '600');
-    anchor.setAttribute('data-chrome', 'noheader nofooter noborders transparent');
-    anchor.href = 'https://twitter.com/DeItaone';
-    anchor.textContent = 'Tweets by Walter Bloomberg';
-    wbRef.current.appendChild(anchor);
-
-    const script = document.createElement('script');
-    script.src = 'https://platform.twitter.com/widgets.js';
-    script.async = true;
-    script.charset = 'utf-8';
-    wbRef.current.appendChild(script);
-  }, []);
 
   const loadEvents = async () => {
     setLoading(true);
@@ -197,6 +178,7 @@ export default function EconomicCalendar() {
             impact: evt.impact || 'medium',
             forecast: evt.forecast || null,
             previous: evt.previous || null,
+            actual: evt.actual || null,
             notes: 'ייובא אוטומטית ע״י AI',
           } as any);
         }
@@ -243,15 +225,8 @@ export default function EconomicCalendar() {
         <p className="text-muted-foreground text-sm">יומן כלכלי — אירועים, חדשות ונתונים חשובים לשוק</p>
       </div>
 
-      {/* Walter Bloomberg Feed */}
-      <div className="rounded-xl border border-border bg-card p-4">
-        <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-[hsl(var(--chart-blue))] animate-pulse" />
-          Walter Bloomberg — חדשות בזמן אמת
-        </h2>
-        <p className="text-xs text-muted-foreground mb-3">@DeItaone — Breaking market news & headlines</p>
-        <div ref={wbRef} className="min-h-[200px] rounded-lg overflow-hidden" />
-      </div>
+      {/* Walter Bloomberg AI News Feed */}
+      <WalterNewsFeed />
 
       {/* TradingView Widget */}
       <div className="rounded-xl border border-border bg-card p-4">

@@ -52,6 +52,41 @@ export type Database = {
           },
         ]
       }
+      account_watchlist: {
+        Row: {
+          account_id: string
+          company_name: string | null
+          created_at: string
+          id: string
+          symbol: string
+          user_id: string
+        }
+        Insert: {
+          account_id: string
+          company_name?: string | null
+          created_at?: string
+          id?: string
+          symbol: string
+          user_id: string
+        }
+        Update: {
+          account_id?: string
+          company_name?: string | null
+          created_at?: string
+          id?: string
+          symbol?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_watchlist_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       accounts: {
         Row: {
           account_type: string

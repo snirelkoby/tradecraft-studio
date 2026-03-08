@@ -13,25 +13,27 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    const systemPrompt = `You are a financial calendar expert. Given a week range, return the key US and global economic events scheduled for that week.
+    const systemPrompt = `You are a financial calendar expert. Given a week range, return the key US economic events that ARE SCHEDULED or ALREADY HAPPENED during that week. Include BOTH past and future events for the given date range.
 
 Return ONLY a JSON object with an "events" array. Each event should have:
 - event_date: YYYY-MM-DD format
 - event_time: HH:MM format in ET (Eastern Time), or null if unknown
 - title: Event name in English
-- currency: USD, EUR, GBP, JPY, etc.
+- currency: USD
 - impact: "high", "medium", or "low"
 - forecast: Expected value if known, or null
 - previous: Previous reading if known, or null
+- actual: Actual value if the event already happened, or null
 
-Focus on HIGH and MEDIUM impact events only. Include:
+Focus on HIGH and MEDIUM impact US events only. Include:
 - Fed decisions, speeches, minutes
 - CPI, PPI, PCE inflation data
 - Employment data (NFP, jobless claims)
 - GDP, retail sales, housing data
 - ISM PMIs, consumer confidence
-- ECB, BOJ, BOE decisions if in that week
-- Any major geopolitical economic events
+- Any major US economic releases
+
+IMPORTANT: Include events that have ALREADY OCCURRED during this week with their actual values if available.
 
 Return ONLY valid JSON, no markdown, no explanation.`;
 
@@ -45,7 +47,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
         model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `What are the key economic events for the week of ${weekStart} to ${weekEnd}? Return JSON only.` },
+          { role: "user", content: `What are the key US economic events for the week of ${weekStart} to ${weekEnd}? Include events that already happened this week with their actual values. Today is ${new Date().toISOString().split('T')[0]}. Return JSON only.` },
         ],
       }),
     });
