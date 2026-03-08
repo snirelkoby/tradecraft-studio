@@ -15,6 +15,7 @@ const navItems = [
   { title: 'Dashboard', url: '/', icon: BarChart3 },
   { title: 'Trade Journal', url: '/trades', icon: PenTool },
   { title: 'Trade Analysis', url: '/analysis', icon: CandlestickChart },
+  { title: 'AI Insights', url: '/ai-insights', icon: Sparkles },
   { title: 'Calendar', url: '/calendar', icon: Calendar },
   { title: 'Blueprints', url: '/blueprints', icon: BookOpen },
   { title: 'Daily Journal', url: '/journal', icon: Notebook },
