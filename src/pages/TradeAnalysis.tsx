@@ -72,7 +72,7 @@ export default function TradeAnalysis() {
   const { data: trades, isLoading } = useTrades();
   const { data: accounts } = useAccounts();
   const [activeView, setActiveView] = useState<ViewId>('trade-candles');
-  const [mode, setMode] = useState<'per-trade' | 'daily'>('per-trade');
+  const [mode, setMode] = useState<'per-trade' | 'daily' | 'monthly'>('per-trade');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [selectedAccount, setSelectedAccount] = useState<string>('all');
