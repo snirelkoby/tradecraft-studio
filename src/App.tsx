@@ -29,6 +29,10 @@ import TradeReplay from "./pages/TradeReplay";
 import MistakeTracker from "./pages/MistakeTracker";
 import CommissionTracker from "./pages/CommissionTracker";
 import TradeComparison from "./pages/TradeComparison";
+import GoalTracker from "./pages/GoalTracker";
+import PreTradeChecklist from "./pages/PreTradeChecklist";
+import RiskRewardHeatmap from "./pages/RiskRewardHeatmap";
+import AiTradeGrading from "./pages/AiTradeGrading";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
