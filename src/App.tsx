@@ -33,6 +33,10 @@ import GoalTracker from "./pages/GoalTracker";
 import PreTradeChecklist from "./pages/PreTradeChecklist";
 import RiskRewardHeatmap from "./pages/RiskRewardHeatmap";
 import AiTradeGrading from "./pages/AiTradeGrading";
+import CorrelationTracker from "./pages/CorrelationTracker";
+import MindsetJournal from "./pages/MindsetJournal";
+import MonteCarloPage from "./pages/MonteCarloPage";
+import AchievementsPage from "./pages/Achievements";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -79,6 +83,10 @@ const App = () => (
                     <Route path="/checklist" element={<PreTradeChecklist />} />
                     <Route path="/heatmap" element={<RiskRewardHeatmap />} />
                     <Route path="/trade-grading" element={<AiTradeGrading />} />
+                    <Route path="/correlation" element={<CorrelationTracker />} />
+                    <Route path="/mindset" element={<MindsetJournal />} />
+                    <Route path="/monte-carlo" element={<MonteCarloPage />} />
+                    <Route path="/achievements" element={<AchievementsPage />} />
                     <Route path="/weekly-review" element={<WeeklyReview />} />
                     <Route path="/journal" element={<Journal />} />
                     <Route path="/ledger" element={<Ledger />} />

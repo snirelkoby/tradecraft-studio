@@ -117,6 +117,27 @@ export type Database = {
         }
         Relationships: []
       }
+      achievements: {
+        Row: {
+          achievement_key: string
+          id: string
+          unlocked_at: string
+          user_id: string
+        }
+        Insert: {
+          achievement_key: string
+          id?: string
+          unlocked_at?: string
+          user_id: string
+        }
+        Update: {
+          achievement_key?: string
+          id?: string
+          unlocked_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       ai_insights: {
         Row: {
           account_filter: string | null
@@ -403,6 +424,48 @@ export type Database = {
         Update: {
           id?: string
           indicators?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      mindset_entries: {
+        Row: {
+          confidence_level: number
+          created_at: string
+          date: string
+          energy_level: number
+          focus_level: number
+          id: string
+          mood: string | null
+          post_session_notes: string | null
+          pre_session_notes: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          confidence_level?: number
+          created_at?: string
+          date?: string
+          energy_level?: number
+          focus_level?: number
+          id?: string
+          mood?: string | null
+          post_session_notes?: string | null
+          pre_session_notes?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          confidence_level?: number
+          created_at?: string
+          date?: string
+          energy_level?: number
+          focus_level?: number
+          id?: string
+          mood?: string | null
+          post_session_notes?: string | null
+          pre_session_notes?: string | null
           updated_at?: string
           user_id?: string
         }

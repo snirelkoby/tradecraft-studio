@@ -7,6 +7,7 @@ import { HourlyPnlChart } from '@/components/dashboard/HourlyPnlChart';
 import { TradeCandlestickChart } from '@/components/dashboard/TradeCandlestickChart';
 import { DayOfWeekChart } from '@/components/dashboard/DayOfWeekChart';
 import { StreakAlerts } from '@/components/dashboard/StreakAlerts';
+import { PositionSizerWidget } from '@/components/dashboard/PositionSizerWidget';
 import {
   Area, AreaChart, CartesianGrid, XAxis, YAxis, Tooltip,
   ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, LineChart, Line
@@ -31,6 +32,7 @@ const ALL_WIDGETS = [
   { id: 'hourly-pnl', label: 'P&L by Hour' },
   { id: 'trade-candles', label: 'Daily Candles (High/Low/Close)' },
   { id: 'day-of-week', label: 'P&L by Day of Week' },
+  { id: 'position-sizer', label: 'Quick Position Sizer' },
 ] as const;
 
 type WidgetId = typeof ALL_WIDGETS[number]['id'];
@@ -234,6 +236,9 @@ export default function Dashboard() {
 
       {/* Streak Alerts */}
       <StreakAlerts trades={trades ?? []} />
+
+      {/* Position Sizer Widget */}
+      {has('position-sizer') && <PositionSizerWidget />}
 
       {/* Narrower 2-col grid for secondary charts */}
       <div className="grid lg:grid-cols-2 gap-6">

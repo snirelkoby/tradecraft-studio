@@ -1,7 +1,8 @@
 import {
   BarChart3, BookOpen, Calendar, FileText, PenTool,
   Calculator, Settings, LogOut, Notebook, FlaskConical, Wallet, CandlestickChart, Sparkles, Globe, CalendarClock,
-  CalendarRange, Gamepad2, Play, AlertTriangle, DollarSign, GitCompare, Target, ClipboardCheck, Flame, GraduationCap
+  CalendarRange, Gamepad2, Play, AlertTriangle, DollarSign, GitCompare, Target, ClipboardCheck, Flame, GraduationCap,
+  Brain, Link2, Dice5, Trophy
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/hooks/useAuth';
@@ -27,6 +28,10 @@ const navItems = [
   { title: 'Goal Tracker', url: '/goals', icon: Target },
   { title: 'Pre-Trade Check', url: '/checklist', icon: ClipboardCheck },
   { title: 'R:R Heatmap', url: '/heatmap', icon: Flame },
+  { title: 'Correlation', url: '/correlation', icon: Link2 },
+  { title: 'Mindset Journal', url: '/mindset', icon: Brain },
+  { title: 'Monte Carlo', url: '/monte-carlo', icon: Dice5 },
+  { title: 'Achievements', url: '/achievements', icon: Trophy },
   { title: 'Calendar', url: '/calendar', icon: Calendar },
   { title: 'Blueprints', url: '/blueprints', icon: BookOpen },
   { title: 'Daily Journal', url: '/journal', icon: Notebook },
