@@ -54,6 +54,7 @@ export default function Trades() {
       if (filterStatus !== 'all' && t.status !== filterStatus) return false;
       if (filterStrategy !== 'all' && t.strategy !== filterStrategy) return false;
       if (filterAssetType !== 'all' && t.asset_type !== filterAssetType) return false;
+      if (filterTag !== 'all' && !(t.tags ?? []).includes(filterTag)) return false;
       if (filterDateFrom && isBefore(parseISO(t.entry_date), parseISO(filterDateFrom))) return false;
       if (filterDateTo && isAfter(parseISO(t.entry_date), parseISO(filterDateTo + 'T23:59:59'))) return false;
       return true;
