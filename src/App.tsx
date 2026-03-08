@@ -123,6 +123,7 @@ const App = () => (
                     <Route path="/economic-calendar" element={<EconomicCalendar />} />
                     <Route path="/accounts" element={<Accounts />} />
                     <Route path="/settings" element={<SettingsPage />} />
+                    <Route path="/install" element={<Install />} />
                   </Route>
                   <Route path="*" element={<NotFound />} />
                 </Routes>
