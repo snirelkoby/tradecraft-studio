@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, CartesianGrid, Cell, ErrorBar } from 'recharts';
+import { useMemo, useCallback } from 'react';
+import { ResponsiveContainer, ComposedChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell, ReferenceLine } from 'recharts';
 import { format, parseISO } from 'date-fns';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -12,23 +12,15 @@ interface CandleData {
   high: number;
   low: number;
   isProfit: boolean;
+  barHeight: number;
 }
 
-/**
- * Creates daily candles where:
- * - open = 0 (start of day)
- * - close = total P&L for the day
- * - high = highest running P&L during the day
- * - low = lowest running P&L during the day
- * Rendered as Japanese candlesticks
- */
 export function TradeCandlestickChart({ trades }: { trades: Trade[] }) {
   const candles = useMemo(() => {
     const closed = trades
       .filter(t => t.status === 'closed' && t.pnl !== null)
       .sort((a, b) => new Date(a.entry_date).getTime() - new Date(b.entry_date).getTime());
 
-    // Group by day
     const dayMap = new Map<string, Trade[]>();
     closed.forEach(t => {
       const day = format(parseISO(t.entry_date), 'yyyy-MM-dd');
@@ -38,7 +30,6 @@ export function TradeCandlestickChart({ trades }: { trades: Trade[] }) {
 
     const result: CandleData[] = [];
     dayMap.forEach((dayTrades, day) => {
-      // Sort trades within the day by time
       dayTrades.sort((a, b) => new Date(a.entry_date).getTime() - new Date(b.entry_date).getTime());
 
       let running = 0;
@@ -58,103 +49,105 @@ export function TradeCandlestickChart({ trades }: { trades: Trade[] }) {
         high,
         low,
         isProfit: running >= 0,
+        barHeight: Math.max(Math.abs(running), 0.01),
       });
     });
 
     return result;
   }, [trades]);
 
-  if (candles.length === 0) return <p className="text-muted-foreground text-sm text-center py-12">No data</p>;
+  const yDomain = useMemo(() => {
+    if (candles.length === 0) return [0, 1];
+    const allVals = candles.flatMap(c => [c.high, c.low, c.open, c.close]);
+    const min = Math.min(...allVals);
+    const max = Math.max(...allVals);
+    const pad = (max - min || 1) * 0.15;
+    return [min - pad, max + pad];
+  }, [candles]);
 
-  // Custom candle shape
-  const CandleShape = (props: any) => {
-    const { x, y, width, height, payload } = props;
-    if (!payload) return null;
+  const CandleShape = useCallback((props: any) => {
+    const { x, width, payload, background } = props;
+    if (!payload || !background) return null;
 
     const { open, close, high, low, isProfit } = payload;
     const color = isProfit ? 'hsl(var(--chart-green))' : 'hsl(var(--chart-red))';
+    const wickColor = 'hsl(var(--muted-foreground))';
 
-    // Calculate positions using the chart's Y scale
-    const yScale = props.yAxis;
-    if (!yScale) return null;
+    const plotY = background.y;
+    const plotHeight = background.height;
+    const [yMin, yMax] = yDomain;
 
-    const bodyTop = Math.min(open, close);
-    const bodyBottom = Math.max(open, close);
-    const bodyHeight = Math.max(Math.abs(height), 2);
+    const valToY = (v: number) => plotY + plotHeight - ((v - yMin) / (yMax - yMin)) * plotHeight;
 
     const centerX = x + width / 2;
-    const wickWidth = 1.5;
-
-    // Use the actual y position from recharts
-    const yHigh = yScale.scale(high);
-    const yLow = yScale.scale(low);
-    const yBodyTop = yScale.scale(Math.max(open, close));
-    const yBodyBottom = yScale.scale(Math.min(open, close));
+    const bodyTop = valToY(Math.max(open, close));
+    const bodyBottom = valToY(Math.min(open, close));
+    const bodyH = Math.max(bodyBottom - bodyTop, 2);
+    const wickTop = valToY(high);
+    const wickBottom = valToY(low);
+    const bodyWidth = Math.max(width - 4, 4);
 
     return (
       <g>
         {/* Upper wick */}
-        <line
-          x1={centerX}
-          y1={yHigh}
-          x2={centerX}
-          y2={yBodyTop}
-          stroke={color}
-          strokeWidth={wickWidth}
-        />
+        <line x1={centerX} y1={wickTop} x2={centerX} y2={bodyTop} stroke={wickColor} strokeWidth={1.5} />
+        {/* Lower wick */}
+        <line x1={centerX} y1={bodyBottom} x2={centerX} y2={wickBottom} stroke={wickColor} strokeWidth={1.5} />
         {/* Body */}
         <rect
-          x={x + 2}
-          y={yBodyTop}
-          width={Math.max(width - 4, 4)}
-          height={Math.max(yBodyBottom - yBodyTop, 2)}
-          fill={isProfit ? color : color}
+          x={x + (width - bodyWidth) / 2}
+          y={bodyTop}
+          width={bodyWidth}
+          height={bodyH}
+          fill={color}
           stroke={color}
           strokeWidth={1}
           rx={2}
-        />
-        {/* Lower wick */}
-        <line
-          x1={centerX}
-          y1={yBodyBottom}
-          x2={centerX}
-          y2={yLow}
-          stroke={color}
-          strokeWidth={wickWidth}
+          fillOpacity={0.85}
         />
       </g>
     );
-  };
+  }, [yDomain]);
+
+  if (candles.length === 0) return <p className="text-muted-foreground text-sm text-center py-12">No data</p>;
 
   return (
     <ResponsiveContainer width="100%" height={300}>
       <ComposedChart data={candles}>
         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
         <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={11} />
-        <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={(v) => `$${v}`} />
-        <Tooltip
-          contentStyle={{
-            background: 'hsl(var(--popover))',
-            border: '1px solid hsl(var(--border))',
-            borderRadius: 8,
-            color: 'hsl(var(--foreground))',
-          }}
-          formatter={(v: number, name: string) => [`$${v.toFixed(2)}`, name]}
-          labelFormatter={(label) => `Date: ${label}`}
+        <YAxis
+          stroke="hsl(var(--muted-foreground))"
+          fontSize={11}
+          tickFormatter={(v) => `$${v}`}
+          domain={yDomain}
         />
-        {/* Invisible bars for candle bodies */}
-        <Bar dataKey="close" radius={[2, 2, 2, 2]} barSize={20}>
-          {candles.map((entry, i) => (
-            <Cell
-              key={i}
-              fill={entry.isProfit ? 'hsl(var(--chart-green))' : 'hsl(var(--chart-red))'}
-              fillOpacity={0.8}
-            />
+        <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" strokeOpacity={0.5} />
+        <Tooltip
+          content={({ active, payload, label }) => {
+            if (!active || !payload?.[0]) return null;
+            const d = payload[0].payload as CandleData;
+            return (
+              <div className="bg-popover border border-border rounded-lg p-3 text-xs space-y-1">
+                <p className="font-bold">{label}</p>
+                <p>Open: <span className="font-mono">${d.open.toFixed(2)}</span></p>
+                <p>Close: <span className="font-mono">${d.close.toFixed(2)}</span></p>
+                <p>High: <span className="font-mono text-chart-green">${d.high.toFixed(2)}</span></p>
+                <p>Low: <span className="font-mono text-chart-red">${d.low.toFixed(2)}</span></p>
+              </div>
+            );
+          }}
+        />
+        <Bar
+          dataKey="barHeight"
+          shape={<CandleShape />}
+          barSize={20}
+          isAnimationActive={false}
+        >
+          {candles.map((_, i) => (
+            <Cell key={i} fill="transparent" />
           ))}
         </Bar>
-        {/* Lines for wicks - high */}
-        <Line type="monotone" dataKey="high" stroke="hsl(var(--muted-foreground))" strokeWidth={0} dot={{ r: 3, fill: 'hsl(var(--chart-green))' }} name="Day High" />
-        <Line type="monotone" dataKey="low" stroke="hsl(var(--muted-foreground))" strokeWidth={0} dot={{ r: 3, fill: 'hsl(var(--chart-red))' }} name="Day Low" />
       </ComposedChart>
     </ResponsiveContainer>
   );
