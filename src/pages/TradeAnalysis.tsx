@@ -515,20 +515,7 @@ export default function TradeAnalysis() {
       </div>
 
       <div className="flex flex-col lg:flex-row gap-4">
-        {/* Left sidebar */}
         <div className="lg:w-56 flex-shrink-0 space-y-3">
-          {/* Account selector */}
-          <Select value={selectedAccount} onValueChange={setSelectedAccount}>
-            <SelectTrigger className="w-full bg-secondary text-sm">
-              <SelectValue placeholder="All Accounts" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Accounts</SelectItem>
-              {accounts?.map(a => (
-                <SelectItem key={a.id} value={a.name}>{a.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
 
           <div className="space-y-1">
             {VIEWS.map(v => (
