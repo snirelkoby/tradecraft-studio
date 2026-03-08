@@ -63,6 +63,7 @@ const App = () => (
                   <Route path="/risk" element={<RiskEngine />} />
                   <Route path="/calculators" element={<Calculators />} />
                   <Route path="/macro" element={<MacroAnalysis />} />
+                  <Route path="/economic-calendar" element={<EconomicCalendar />} />
                   <Route path="/accounts" element={<Accounts />} />
                   <Route path="/settings" element={<SettingsPage />} />
                 </Route>
