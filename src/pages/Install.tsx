@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Download, Smartphone, Monitor, Apple, Chrome, Share2, MoreVertical, PlusSquare } from 'lucide-react';
+import { Download, Smartphone, Monitor, Chrome, Share2, MoreVertical, PlusSquare, TabletSmartphone } from 'lucide-react';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
