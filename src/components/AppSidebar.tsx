@@ -5,7 +5,7 @@ import {
   CalendarRange, Gamepad2, Play, AlertTriangle, DollarSign, GitCompare, Target, ClipboardCheck, Flame, GraduationCap,
   Brain, Link2, Dice5, Trophy, TrendingDown, ShieldAlert, CalendarDays, FlaskRound, Hourglass,
   Fingerprint, Activity, Clover, ArrowDownUp, Clock, TrendingUp,
-  Bot, Heart, Zap, ChevronDown, Search
+  Bot, Heart, Zap, ChevronDown, Search, Download
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/hooks/useAuth';
@@ -119,6 +119,7 @@ const navGroups: NavGroup[] = [
     label: 'System',
     items: [
       { title: 'Settings', url: '/settings', icon: Settings },
+      { title: 'Install App', url: '/install', icon: Download },
     ],
   },
 ];

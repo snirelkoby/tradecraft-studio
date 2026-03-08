@@ -50,6 +50,7 @@ import OptimalSession from "./pages/OptimalSession";
 import CompoundingSim from "./pages/CompoundingSim";
 import TradeJournalAI from "./pages/TradeJournalAI";
 import EmotionTracker from "./pages/EmotionTracker";
+import Install from "./pages/Install";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -122,6 +123,7 @@ const App = () => (
                     <Route path="/economic-calendar" element={<EconomicCalendar />} />
                     <Route path="/accounts" element={<Accounts />} />
                     <Route path="/settings" element={<SettingsPage />} />
+                    <Route path="/install" element={<Install />} />
                   </Route>
                   <Route path="*" element={<NotFound />} />
                 </Routes>
