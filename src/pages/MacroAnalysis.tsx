@@ -317,6 +317,11 @@ export default function MacroAnalysis() {
         <IndicatorCharts />
       </div>
 
+      {/* FRED Rates & Yields */}
+      <div className="rounded-xl border border-border bg-card p-6">
+        <FredCharts />
+      </div>
+
       {/* Economic Indicators Manual Input */}
       <div className="rounded-xl border border-border bg-card p-6 space-y-4">
         <div className="flex items-center justify-between">
