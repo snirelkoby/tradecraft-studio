@@ -66,7 +66,7 @@ export default function EconomicCalendar() {
   const [fetchingNews, setFetchingNews] = useState(false);
   const [form, setForm] = useState({ event_date: format(new Date(), 'yyyy-MM-dd'), event_time: '', title: '', currency: 'USD', impact: 'high', forecast: '', actual: '', previous: '', notes: '' });
   const tvRef = useRef<HTMLDivElement>(null);
-  const wbRef = useRef<HTMLDivElement>(null);
+  
 
   const weekEnd = addDays(weekStart, 6);
 
