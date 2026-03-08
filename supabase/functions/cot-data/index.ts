@@ -6,10 +6,10 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// CFTC codes for the combined report
+// Correct CFTC codes (verified from API)
 const COT_CODES: Record<string, { code: string; name: string }> = {
   ES: { code: "13874A", name: "S&P 500 (E-MINI)" },
-  NQ: { code: "209742A", name: "NASDAQ MINI" },
+  NQ: { code: "209742", name: "NASDAQ MINI" },
 };
 
 const CFTC_API = "https://publicreporting.cftc.gov/resource/jun7-fc8e.json";
@@ -40,7 +40,7 @@ serve(async (req) => {
       userId = user?.id || null;
     }
 
-    // Calculate date one year ago
+    // One year ago
     const oneYearAgo = new Date();
     oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
     const dateFrom = oneYearAgo.toISOString().split("T")[0];
@@ -49,8 +49,9 @@ serve(async (req) => {
     const allHistoryRows: any[] = [];
 
     for (const [symbol, cfg] of Object.entries(COT_CODES)) {
-      // Fetch ~52 weeks from CFTC API
       const url = `${CFTC_API}?$where=cftc_contract_market_code='${cfg.code}' AND report_date_as_yyyy_mm_dd>='${dateFrom}T00:00:00.000'&$order=report_date_as_yyyy_mm_dd ASC&$limit=60`;
+      
+      console.log(`Fetching ${symbol} with code ${cfg.code}: ${url}`);
       
       const resp = await fetch(url);
       if (!resp.ok) {
@@ -59,9 +60,9 @@ serve(async (req) => {
       }
 
       const records: CftcRecord[] = await resp.json();
+      console.log(`${symbol}: got ${records.length} records`);
       if (!records.length) continue;
 
-      // Process all records for history
       for (const rec of records) {
         const reportDate = rec.report_date_as_yyyy_mm_dd.split("T")[0];
         const ncLong = parseInt(rec.noncomm_positions_long_all) || 0;
@@ -86,7 +87,6 @@ serve(async (req) => {
         }
       }
 
-      // Use latest record for current display
       const latest = records[records.length - 1];
       const ncLong = parseInt(latest.noncomm_positions_long_all) || 0;
       const ncShort = parseInt(latest.noncomm_positions_short_all) || 0;
@@ -100,13 +100,9 @@ serve(async (req) => {
       let sentiment: string;
       let weeklyShift: string;
 
-      if (netChange > 0) {
-        weeklyShift = "more_bullish";
-      } else if (netChange < 0) {
-        weeklyShift = "more_bearish";
-      } else {
-        weeklyShift = "unchanged";
-      }
+      if (netChange > 0) weeklyShift = "more_bullish";
+      else if (netChange < 0) weeklyShift = "more_bearish";
+      else weeklyShift = "unchanged";
 
       if (netPosition > 0) {
         sentiment = netChange < 0 ? "weakening_bullish" : "bullish";
@@ -139,12 +135,12 @@ serve(async (req) => {
       const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
       const adminClient = createClient(supabaseUrl, serviceKey);
 
-      // Upsert in batches of 50
       for (let i = 0; i < allHistoryRows.length; i += 50) {
         const batch = allHistoryRows.slice(i, i + 50);
-        await adminClient.from("cot_history").upsert(batch, {
+        const { error } = await adminClient.from("cot_history").upsert(batch, {
           onConflict: "user_id,symbol,report_date",
         });
+        if (error) console.error("Upsert error:", error);
       }
     }
 
