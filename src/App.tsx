@@ -18,6 +18,7 @@ import Ledger from "./pages/Ledger";
 import RiskEngine from "./pages/RiskEngine";
 import Calculators from "./pages/Calculators";
 import MacroAnalysis from "./pages/MacroAnalysis";
+import EconomicCalendar from "./pages/EconomicCalendar";
 import Journal from "./pages/Journal";
 import Accounts from "./pages/Accounts";
 import SettingsPage from "./pages/Settings";
@@ -62,6 +63,7 @@ const App = () => (
                   <Route path="/risk" element={<RiskEngine />} />
                   <Route path="/calculators" element={<Calculators />} />
                   <Route path="/macro" element={<MacroAnalysis />} />
+                  <Route path="/economic-calendar" element={<EconomicCalendar />} />
                   <Route path="/accounts" element={<Accounts />} />
                   <Route path="/settings" element={<SettingsPage />} />
                 </Route>

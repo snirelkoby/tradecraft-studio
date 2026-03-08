@@ -18,7 +18,13 @@ export function KpiCard({ title, value, subtitle, variant = 'default' }: KpiCard
       )}
     >
       <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">{title}</p>
-      <p className="text-2xl font-mono font-bold text-foreground">{value}</p>
+      <p className={cn(
+        'text-2xl font-mono font-bold',
+        variant === 'green' ? 'text-[hsl(var(--chart-green))]' :
+        variant === 'red' ? 'text-[hsl(var(--chart-red))]' :
+        variant === 'blue' ? 'text-[hsl(var(--chart-blue))]' :
+        'text-foreground'
+      )}>{value}</p>
       {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
     </div>
   );

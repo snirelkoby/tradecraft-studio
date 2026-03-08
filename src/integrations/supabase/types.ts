@@ -202,6 +202,54 @@ export type Database = {
         }
         Relationships: []
       }
+      economic_events: {
+        Row: {
+          actual: string | null
+          created_at: string
+          currency: string | null
+          event_date: string
+          event_time: string | null
+          forecast: string | null
+          id: string
+          impact: string | null
+          notes: string | null
+          previous: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          actual?: string | null
+          created_at?: string
+          currency?: string | null
+          event_date: string
+          event_time?: string | null
+          forecast?: string | null
+          id?: string
+          impact?: string | null
+          notes?: string | null
+          previous?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          actual?: string | null
+          created_at?: string
+          currency?: string | null
+          event_date?: string
+          event_time?: string | null
+          forecast?: string | null
+          id?: string
+          impact?: string | null
+          notes?: string | null
+          previous?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       journal_entries: {
         Row: {
           created_at: string
