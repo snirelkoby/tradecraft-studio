@@ -55,7 +55,8 @@ export function CotHistoryChart() {
 
   const formatDate = (date: string) => {
     const d = new Date(date);
-    return `${d.getDate()}/${d.getMonth() + 1}`;
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return `${months[d.getMonth()]} ${d.getDate()}`;
   };
 
   return (
