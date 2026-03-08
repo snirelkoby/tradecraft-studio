@@ -37,6 +37,10 @@ import CorrelationTracker from "./pages/CorrelationTracker";
 import MindsetJournal from "./pages/MindsetJournal";
 import MonteCarloPage from "./pages/MonteCarloPage";
 import AchievementsPage from "./pages/Achievements";
+import DrawdownAnalyzer from "./pages/DrawdownAnalyzer";
+import RuleViolations from "./pages/RuleViolations";
+import SessionPlanner from "./pages/SessionPlanner";
+import AbStrategyTester from "./pages/AbStrategyTester";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
