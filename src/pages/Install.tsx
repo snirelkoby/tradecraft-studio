@@ -165,6 +165,4 @@ export default function Install() {
       </Card>
     </div>
   );
-});
-
-export default Install;
+}
