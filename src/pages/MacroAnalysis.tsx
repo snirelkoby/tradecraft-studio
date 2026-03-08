@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CotHistoryChart } from '@/components/macro/CotHistoryChart';
+import { IndicatorCharts } from '@/components/macro/IndicatorChart';
 
 interface Indicator {
   name: string;
