@@ -370,7 +370,7 @@ export default function TradeAnalysis() {
           <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" strokeOpacity={0.5} />
           <Tooltip content={<CandleTooltip />} />
           {/* Candle bodies with wicks via custom shape */}
-          <Bar dataKey="close" barSize={mode === 'per-trade' ? 8 : 20} name="P&L" shape={<CandleBarShape />}>
+          <Bar dataKey="close" barSize={mode === 'per-trade' ? 8 : mode === 'daily' ? 20 : 30} name="P&L" shape={<CandleBarShape />}>
             {candleData.map((entry, i) => (
               <Cell key={i} fill={entry.isProfit ? 'hsl(var(--chart-green))' : 'hsl(var(--chart-purple, 262 83% 58%))'} />
             ))}
