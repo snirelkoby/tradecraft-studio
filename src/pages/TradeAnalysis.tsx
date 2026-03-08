@@ -386,13 +386,15 @@ export default function TradeAnalysis() {
     }
 
     const allValues = candleData.flatMap(d => [
-      d.close, 0,
-      d.wickHigh ?? d.close,
-      d.wickLow ?? d.close,
-    ]);
-    const dataMin = Math.min(...allValues);
-    const dataMax = Math.max(...allValues);
-    const padding = Math.max(Math.abs(dataMax - dataMin) * 0.1, 10);
+      d.close,
+      d.wickHigh != null ? d.wickHigh : d.close,
+      d.wickLow != null ? d.wickLow : d.close,
+    ]).filter(v => v != null && isFinite(v));
+    allValues.push(0); // always include zero line
+    const dataMin = allValues.length > 0 ? Math.min(...allValues) : -100;
+    const dataMax = allValues.length > 0 ? Math.max(...allValues) : 100;
+    const range = Math.max(dataMax - dataMin, 20);
+    const padding = range * 0.1;
 
     return (
       <ResponsiveContainer width="100%" height={450}>
@@ -407,8 +409,9 @@ export default function TradeAnalysis() {
           <YAxis
             stroke="hsl(var(--muted-foreground))"
             fontSize={11}
-            tickFormatter={v => `$${v}`}
-            domain={[dataMin - padding, dataMax + padding]}
+            tickFormatter={v => `$${Math.round(v)}`}
+            domain={[Math.floor(dataMin - padding), Math.ceil(dataMax + padding)]}
+            allowDataOverflow={false}
           />
           <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" strokeOpacity={0.5} />
           <Tooltip content={<CandleTooltip />} cursor={<CrosshairCursor />} />
