@@ -61,7 +61,7 @@ const CandleBarShape = (props: any) => {
   return (
     <g>
       {/* Wick line */}
-      <line x1={centerX} y1={wickTopY} x2={centerX} y2={wickBottomY} stroke={color} strokeWidth={1.5} />
+      <line x1={centerX} y1={wickTopY} x2={centerX} y2={wickBottomY} stroke="hsl(var(--muted-foreground))" strokeWidth={1.5} />
       {/* Candle body */}
       <rect x={x} y={barTop} width={width} height={Math.max(absHeight, 2)} fill={color} rx={2} />
     </g>
@@ -72,7 +72,7 @@ export default function TradeAnalysis() {
   const { data: trades, isLoading } = useTrades();
   const { data: accounts } = useAccounts();
   const [activeView, setActiveView] = useState<ViewId>('trade-candles');
-  const [mode, setMode] = useState<'per-trade' | 'daily'>('per-trade');
+  const [mode, setMode] = useState<'per-trade' | 'daily' | 'monthly'>('per-trade');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [selectedAccount, setSelectedAccount] = useState<string>('all');
@@ -226,7 +226,40 @@ export default function TradeAnalysis() {
     return result;
   }, [closed]);
 
-  const candleData = mode === 'per-trade' ? perTradeCandles : dailyCandles;
+  // Monthly candle data
+  const monthlyCandles = useMemo(() => {
+    const monthMap = new Map<string, Trade[]>();
+    closed.forEach(t => {
+      const month = format(parseISO(t.entry_date), 'yyyy-MM');
+      if (!monthMap.has(month)) monthMap.set(month, []);
+      monthMap.get(month)!.push(t);
+    });
+
+    const result: any[] = [];
+    monthMap.forEach((monthTrades, month) => {
+      monthTrades.sort((a, b) => new Date(a.entry_date).getTime() - new Date(b.entry_date).getTime());
+      let running = 0, high = 0, low = 0;
+      monthTrades.forEach(t => {
+        running += t.pnl ?? 0;
+        if (running > high) high = running;
+        if (running < low) low = running;
+      });
+      result.push({
+        label: format(parseISO(month + '-01'), 'MMM yy'),
+        fullDate: format(parseISO(month + '-01'), 'MMMM yyyy'),
+        open: 0,
+        close: running,
+        wickHigh: high,
+        wickLow: low,
+        isProfit: running >= 0,
+        pnl: running,
+        trades: monthTrades.length,
+      });
+    });
+    return result;
+  }, [closed]);
+
+  const candleData = mode === 'per-trade' ? perTradeCandles : mode === 'daily' ? dailyCandles : monthlyCandles;
 
   const equityData = useMemo(() => {
     let cum = 0;
@@ -337,7 +370,7 @@ export default function TradeAnalysis() {
           <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" strokeOpacity={0.5} />
           <Tooltip content={<CandleTooltip />} />
           {/* Candle bodies with wicks via custom shape */}
-          <Bar dataKey="close" barSize={mode === 'per-trade' ? 8 : 20} name="P&L" shape={<CandleBarShape />}>
+          <Bar dataKey="close" barSize={mode === 'per-trade' ? 8 : mode === 'daily' ? 20 : 30} name="P&L" shape={<CandleBarShape />}>
             {candleData.map((entry, i) => (
               <Cell key={i} fill={entry.isProfit ? 'hsl(var(--chart-green))' : 'hsl(var(--chart-purple, 262 83% 58%))'} />
             ))}
@@ -536,6 +569,14 @@ export default function TradeAnalysis() {
                   }`}
                 >
                   Daily
+                </button>
+                <button
+                  onClick={() => setMode('monthly')}
+                  className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                    mode === 'monthly' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Monthly
                 </button>
               </div>
             )}
