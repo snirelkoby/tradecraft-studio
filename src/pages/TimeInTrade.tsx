@@ -28,11 +28,12 @@ export default function TimeInTrade() {
 
     // Stats by duration bucket
     const buckets = [
-      { label: '< 15m', min: 0, max: 0.25 },
-      { label: '15m–1h', min: 0.25, max: 1 },
-      { label: '1h–4h', min: 1, max: 4 },
-      { label: '4h–1d', min: 4, max: 24 },
-      { label: '1d+', min: 24, max: Infinity },
+      { label: '< 5m', min: 0, max: 5 },
+      { label: '5–15m', min: 5, max: 15 },
+      { label: '15–30m', min: 15, max: 30 },
+      { label: '30–60m', min: 30, max: 60 },
+      { label: '1h–4h', min: 60, max: 240 },
+      { label: '4h+', min: 240, max: Infinity },
     ];
 
     const bucketStats = buckets.map(b => {
