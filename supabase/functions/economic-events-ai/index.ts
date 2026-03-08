@@ -47,7 +47,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
         model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `What are the key economic events for the week of ${weekStart} to ${weekEnd}? Return JSON only.` },
+          { role: "user", content: `What are the key US economic events for the week of ${weekStart} to ${weekEnd}? Include events that already happened this week with their actual values. Today is ${new Date().toISOString().split('T')[0]}. Return JSON only.` },
         ],
       }),
     });
