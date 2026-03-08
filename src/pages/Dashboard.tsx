@@ -96,7 +96,6 @@ export default function Dashboard() {
     });
 
   const cumData = cumMode === 'trade' ? cumDataPerTrade : cumDataPerDay;
-  const cumData = cumMode === 'trade' ? cumDataPerTrade : cumDataPerDay;
 
   const dailyMap = new Map<string, number>();
   closed.forEach((t) => {
