@@ -97,18 +97,13 @@ serve(async (req) => {
       const openInterest = parseInt(latest.open_interest_all) || 0;
       const reportDate = latest.report_date_as_yyyy_mm_dd.split("T")[0];
 
-      // Sentiment logic:
-      // Opening longs (longChange > 0) = bullish signal
-      // Closing longs (longChange < 0) = bearish signal
-      // Opening shorts (shortChange > 0) = bearish signal
-      // Closing shorts (shortChange < 0) = bullish signal
-      // Net change = longChange - shortChange (positive = bullish shift)
+      // Sentiment logic based on FLOW (weekly changes), not just net position
+      // Opening longs = bullish | Closing longs = bearish
+      // Opening shorts = bearish | Closing shorts = bullish
+      // Key insight: if lots of longs opened + shorts closed = BULLISH regardless of net
       let sentiment: string;
       let weeklyShift: string;
 
-      // Weekly shift based on positioning changes
-      // Bullish: adding longs OR closing shorts
-      // Bearish: closing longs OR adding shorts
       const bullishPressure = Math.max(ncLongChange, 0) + Math.abs(Math.min(ncShortChange, 0));
       const bearishPressure = Math.abs(Math.min(ncLongChange, 0)) + Math.max(ncShortChange, 0);
       
@@ -116,21 +111,29 @@ serve(async (req) => {
       else if (bearishPressure > bullishPressure * 1.1) weeklyShift = "more_bearish";
       else weeklyShift = "unchanged";
 
+      // Sentiment is determined by combining net position AND weekly flow
+      // Flow dominates when it's strong enough to signal a shift
+      const flowRatio = bullishPressure > 0 || bearishPressure > 0
+        ? bullishPressure / (bullishPressure + bearishPressure)
+        : 0.5; // 0=all bearish, 0.5=neutral, 1=all bullish
+
+      const strongBullishFlow = flowRatio > 0.65; // strong bullish weekly change
+      const strongBearishFlow = flowRatio < 0.35; // strong bearish weekly change
+
       if (netPosition > 0) {
-        // Net long - check if weakening
-        if (ncLongChange < 0 && ncShortChange > 0) {
-          sentiment = "weakening_bullish"; // closing longs AND opening shorts
-        } else if (ncLongChange < -5000 || ncShortChange > 5000) {
-          sentiment = "weakening_bullish"; // significant closing longs or opening shorts
+        // Net long position
+        if (strongBearishFlow) {
+          sentiment = "weakening_bullish"; // net long but closing longs / opening shorts
         } else {
           sentiment = "bullish";
         }
       } else if (netPosition < 0) {
-        // Net short - check if weakening
-        if (ncShortChange < 0 && ncLongChange > 0) {
-          sentiment = "weakening_bearish"; // closing shorts AND opening longs
-        } else if (ncShortChange < -5000 || ncLongChange > 5000) {
-          sentiment = "weakening_bearish"; // significant closing shorts or opening longs
+        // Net short position
+        if (strongBullishFlow) {
+          // Net short BUT opening longs and closing shorts = shifting bullish
+          sentiment = "shifting_bullish";
+        } else if (flowRatio > 0.5) {
+          sentiment = "weakening_bearish";
         } else {
           sentiment = "bearish";
         }

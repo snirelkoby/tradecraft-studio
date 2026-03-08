@@ -151,9 +151,41 @@ serve(async (req) => {
       };
     }
 
-    // DXY from a simple source - use marketstack alternative or skip
-    // For now we'll calculate a simple DXY placeholder note
-    console.log(`Returning ${Object.keys(results).length} FRED indicators`);
+    // Fetch DXY from Yahoo Finance
+    try {
+      const twoYearsAgoTs = Math.floor(twoYearsAgo.getTime() / 1000);
+      const nowTs = Math.floor(now.getTime() / 1000);
+      const dxyUrl = `https://query1.finance.yahoo.com/v8/finance/chart/DX-Y.NYB?period1=${twoYearsAgoTs}&period2=${nowTs}&interval=1wk`;
+      const dxyResp = await fetch(dxyUrl, { headers: { "User-Agent": "Mozilla/5.0" } });
+      if (dxyResp.ok) {
+        const dxyJson = await dxyResp.json();
+        const dxyResult = dxyJson?.chart?.result?.[0];
+        const timestamps = dxyResult?.timestamp || [];
+        const closes = dxyResult?.indicators?.quote?.[0]?.close || [];
+        const dxyPoints: { date: string; value: number }[] = [];
+        for (let i = 0; i < timestamps.length; i++) {
+          if (closes[i] != null) {
+            const d = new Date(timestamps[i] * 1000);
+            dxyPoints.push({
+              date: d.toISOString().split("T")[0],
+              value: parseFloat(closes[i].toFixed(2)),
+            });
+          }
+        }
+        if (dxyPoints.length > 0) {
+          results["DXY"] = {
+            label: "US Dollar Index",
+            format: "index",
+            frequency: "weekly",
+            data: dxyPoints,
+          };
+        }
+      }
+    } catch (e) {
+      console.error("DXY fetch error:", e);
+    }
+
+    console.log(`Returning ${Object.keys(results).length} indicators`);
 
     return new Response(JSON.stringify({ success: true, data: results }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
