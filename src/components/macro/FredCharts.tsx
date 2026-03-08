@@ -91,7 +91,7 @@ export function FredCharts() {
               stroke="hsl(var(--muted-foreground))"
             />
             <Tooltip
-              formatter={(value: number) => [`${value.toFixed(2)}%`, name]}
+              formatter={(value: number) => [`${value.toFixed(2)}${indicator.format === 'percent' ? '%' : ''}`, name]}
               labelFormatter={formatDate}
               contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }}
             />
