@@ -187,8 +187,16 @@ export default function Trades() {
           </Select>
           <Input type="date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} className="bg-secondary text-xs" placeholder="From" />
           <Input type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} className="bg-secondary text-xs" placeholder="To" />
+        </div>
+      </div>
 
-      <div className="rounded-xl border border-border bg-card overflow-hidden">
+      <Tabs defaultValue="trades">
+        <TabsList className="bg-secondary border border-border">
+          <TabsTrigger value="trades" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Trades</TabsTrigger>
+          <TabsTrigger value="tag-performance" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Tag Performance</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="trades">
         {isLoading ? (
           <p className="text-center py-12 text-muted-foreground">Loading...</p>
         ) : !filtered.length ? (
