@@ -1,4 +1,4 @@
-import { useState, useEffect, forwardRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Download, Smartphone, Monitor, Apple, Chrome, Share2, MoreVertical, PlusSquare } from 'lucide-react';
@@ -8,7 +8,7 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
 
-const Install = forwardRef<HTMLDivElement>(function Install(_props, _ref) {
+export default function Install() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
   const [platform, setPlatform] = useState<'ios' | 'android' | 'desktop'>('desktop');
@@ -165,6 +165,4 @@ const Install = forwardRef<HTMLDivElement>(function Install(_props, _ref) {
       </Card>
     </div>
   );
-});
-
-export default Install;
+}
