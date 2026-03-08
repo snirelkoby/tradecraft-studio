@@ -130,11 +130,35 @@ export default function TradeAnalysis() {
     fetchYahoo();
   }, [closed, mode]);
 
-  const calcPnlAtPrice = useCallback((trade: Trade, price: number): number => {
-    const diff = trade.direction === 'long'
-      ? price - trade.entry_price
-      : trade.entry_price - price;
-    return diff * trade.quantity - (trade.fees ?? 0);
+  // Calculate proportional P&L at a yahoo price using the actual trade's known P&L
+  // This correctly handles futures multipliers without needing to know the tick value
+  const calcWickPnl = useCallback((trade: Trade, yahooHigh: number, yahooLow: number) => {
+    const pnl = trade.pnl ?? 0;
+    const entry = trade.entry_price;
+    const exit = trade.exit_price;
+    
+    if (!exit || exit === entry) return { wickHigh: null, wickLow: null };
+    
+    const fees = trade.fees ?? 0;
+    const pnlBeforeFees = pnl + fees;
+    const priceMove = trade.direction === 'long' ? exit - entry : entry - exit;
+    
+    if (priceMove === 0) return { wickHigh: null, wickLow: null };
+    
+    // dollarPerPoint = how much $ per 1 point of price movement (includes multiplier & quantity)
+    const dollarPerPoint = pnlBeforeFees / priceMove;
+    
+    // Calculate P&L if price reached yahoo high/low
+    const moveToHigh = trade.direction === 'long' ? yahooHigh - entry : entry - yahooLow;
+    const moveToLow = trade.direction === 'long' ? yahooLow - entry : entry - yahooHigh;
+    
+    const pnlAtHigh = moveToHigh * dollarPerPoint - fees;
+    const pnlAtLow = moveToLow * dollarPerPoint - fees;
+    
+    return {
+      wickHigh: Math.max(pnlAtHigh, pnlAtLow, pnl, 0),
+      wickLow: Math.min(pnlAtHigh, pnlAtLow, pnl, 0),
+    };
   }, []);
 
   const perTradeCandles = useMemo(() => {
@@ -146,10 +170,9 @@ export default function TradeAnalysis() {
       let wickLow: number | null = null;
 
       if (yahoo) {
-        const pnlAtHigh = calcPnlAtPrice(t, yahoo.high);
-        const pnlAtLow = calcPnlAtPrice(t, yahoo.low);
-        wickHigh = Math.max(pnlAtHigh, pnlAtLow, pnl, 0);
-        wickLow = Math.min(pnlAtHigh, pnlAtLow, pnl, 0);
+        const wicks = calcWickPnl(t, yahoo.high, yahoo.low);
+        wickHigh = wicks.wickHigh;
+        wickLow = wicks.wickLow;
       }
 
       return {
