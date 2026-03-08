@@ -8,6 +8,7 @@ import { TradeCandlestickChart } from '@/components/dashboard/TradeCandlestickCh
 import { DayOfWeekChart } from '@/components/dashboard/DayOfWeekChart';
 import { StreakAlerts } from '@/components/dashboard/StreakAlerts';
 import { PositionSizerWidget } from '@/components/dashboard/PositionSizerWidget';
+import { QuickStatsWidget } from '@/components/dashboard/QuickStatsWidget';
 import {
   Area, AreaChart, CartesianGrid, XAxis, YAxis, Tooltip,
   ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, LineChart, Line
