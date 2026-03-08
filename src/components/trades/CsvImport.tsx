@@ -8,7 +8,8 @@ import { toast } from 'sonner';
 import { Upload } from 'lucide-react';
 
 const CSV_SOURCES = [
-  { id: 'deepcharts', label: 'DeepCharts', description: 'Semicolon-separated CSV from DeepCharts / Rithmic' },
+  { id: 'deepcharts', label: 'DeepCharts', description: 'Semicolon-separated CSV from DeepCharts' },
+  { id: 'rithmic', label: 'Rithmic', description: 'Order History CSV export from R|Trader Pro' },
 ] as const;
 
 type CsvSource = typeof CSV_SOURCES[number]['id'];
@@ -17,7 +18,6 @@ function parseDeepCharts(text: string, userId: string) {
   const lines = text.trim().split('\n');
   if (lines.length < 2) throw new Error('CSV must have a header and at least one row');
 
-  // Header: Symbol;DT;Quantity;Entry;Exit;ProfitLoss
   const headers = lines[0].split(';').map(h => h.trim());
   const symIdx = headers.findIndex(h => h.toLowerCase() === 'symbol');
   const dtIdx = headers.findIndex(h => h.toLowerCase() === 'dt');
@@ -59,6 +59,157 @@ function parseDeepCharts(text: string, userId: string) {
   });
 }
 
+function parseRithmic(text: string, userId: string) {
+  const lines = text.split('\n');
+  
+  // Find "Completed Orders" section
+  let startIdx = lines.findIndex(l => l.trim().startsWith('Completed Orders'));
+  if (startIdx === -1) throw new Error('Could not find "Completed Orders" section in file');
+  
+  // Next line is the header
+  startIdx += 1;
+  const headerLine = lines[startIdx];
+  if (!headerLine) throw new Error('No header row found after Completed Orders');
+  
+  // Parse CSV header (quoted, comma-separated)
+  const parseCSVLine = (line: string): string[] => {
+    const result: string[] = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') { inQuotes = !inQuotes; continue; }
+      if (ch === ',' && !inQuotes) { result.push(current.trim()); current = ''; continue; }
+      current += ch;
+    }
+    result.push(current.trim());
+    return result;
+  };
+
+  const headers = parseCSVLine(headerLine);
+  const col = (name: string) => headers.findIndex(h => h.toLowerCase().includes(name.toLowerCase()));
+  
+  const statusIdx = col('Status');
+  const buySellIdx = col('Buy/Sell');
+  const qtyIdx = col('Qty To Fill');
+  const symbolIdx = col('Symbol');
+  const avgFillIdx = col('Avg Fill Price');
+  const updateTimeIdx = col('Update Time');
+  const accountIdx = col('Account');
+
+  if (statusIdx === -1 || buySellIdx === -1 || symbolIdx === -1 || avgFillIdx === -1) {
+    throw new Error('Missing required Rithmic columns (Status, Buy/Sell, Symbol, Avg Fill Price)');
+  }
+
+  // Parse only Filled orders
+  interface FilledOrder {
+    account: string;
+    side: 'B' | 'S';
+    qty: number;
+    symbol: string;
+    price: number;
+    time: string;
+  }
+
+  const filledOrders: FilledOrder[] = [];
+  for (let i = startIdx + 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    const vals = parseCSVLine(line);
+    if (vals[statusIdx] !== 'Filled') continue;
+    const price = parseFloat(vals[avgFillIdx]);
+    if (isNaN(price) || price === 0) continue;
+
+    filledOrders.push({
+      account: vals[accountIdx] || '',
+      side: vals[buySellIdx] as 'B' | 'S',
+      qty: parseInt(vals[qtyIdx]) || 1,
+      symbol: vals[symbolIdx],
+      price,
+      time: vals[updateTimeIdx] || vals[col('Create Time')] || '',
+    });
+  }
+
+  if (filledOrders.length === 0) throw new Error('No filled orders found in file');
+
+  // Sort chronologically (oldest first)
+  filledOrders.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+
+  // FIFO match: group by symbol, pair buys with sells
+  const bySymbol = new Map<string, FilledOrder[]>();
+  filledOrders.forEach(o => {
+    if (!bySymbol.has(o.symbol)) bySymbol.set(o.symbol, []);
+    bySymbol.get(o.symbol)!.push(o);
+  });
+
+  const trades: any[] = [];
+
+  bySymbol.forEach((orders, symbol) => {
+    const buys: FilledOrder[] = [];
+    const sells: FilledOrder[] = [];
+
+    orders.forEach(o => {
+      if (o.side === 'B') buys.push(o);
+      else sells.push(o);
+    });
+
+    // Match FIFO
+    let bi = 0, si = 0;
+    let buyRemaining = 0, sellRemaining = 0;
+
+    while (bi < buys.length && si < sells.length) {
+      const buy = buys[bi];
+      const sell = sells[si];
+      
+      if (buyRemaining === 0) buyRemaining = buy.qty;
+      if (sellRemaining === 0) sellRemaining = sell.qty;
+
+      const matchQty = Math.min(buyRemaining, sellRemaining);
+      
+      // Determine direction: if buy came first, it's a long trade
+      const buyFirst = new Date(buy.time).getTime() <= new Date(sell.time).getTime();
+      const direction = buyFirst ? 'long' : 'short';
+      const entryPrice = buyFirst ? buy.price : sell.price;
+      const exitPrice = buyFirst ? sell.price : buy.price;
+      const entryTime = buyFirst ? buy.time : sell.time;
+      const exitTime = buyFirst ? sell.time : buy.time;
+
+      const rawPnl = direction === 'long'
+        ? (exitPrice - entryPrice) * matchQty * 20 // NQ tick value approximation: $20/point
+        : (entryPrice - exitPrice) * matchQty * 20;
+
+      trades.push({
+        user_id: userId,
+        symbol: symbol.replace(/[A-Z]\d$/, ''), // Strip contract month (NQH6 -> NQ)
+        direction,
+        entry_date: new Date(entryTime).toISOString(),
+        exit_date: new Date(exitTime).toISOString(),
+        entry_price: entryPrice,
+        exit_price: exitPrice,
+        quantity: matchQty,
+        pnl: rawPnl,
+        pnl_percent: null,
+        fees: 0,
+        stop_loss: null,
+        take_profit: null,
+        strategy: null,
+        notes: `Rithmic import | Account: ${buy.account}`,
+        status: 'closed',
+        asset_type: 'Futures',
+        account_name: buy.account,
+      });
+
+      buyRemaining -= matchQty;
+      sellRemaining -= matchQty;
+      if (buyRemaining === 0) bi++;
+      if (sellRemaining === 0) si++;
+    }
+  });
+
+  if (trades.length === 0) throw new Error('Could not match any buy/sell pairs into trades');
+  return trades;
+}
+
 export function CsvImport() {
   const { user } = useAuth();
   const qc = useQueryClient();
@@ -85,13 +236,15 @@ export function CsvImport() {
         case 'deepcharts':
           trades = parseDeepCharts(text, user.id);
           break;
+        case 'rithmic':
+          trades = parseRithmic(text, user.id);
+          break;
         default:
           throw new Error('Unknown source');
       }
 
       if (trades.length === 0) throw new Error('No trades found in file');
 
-      // Insert in batches of 100
       for (let i = 0; i < trades.length; i += 100) {
         const batch = trades.slice(i, i + 100);
         const { error } = await supabase.from('trades').insert(batch as any);

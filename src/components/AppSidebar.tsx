@@ -1,10 +1,10 @@
 import {
   BarChart3, BookOpen, Calendar, FileText, PenTool,
-  Calculator, Settings, LogOut, Notebook, FlaskConical
+  Calculator, Settings, LogOut, Notebook, FlaskConical, Wallet
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
-import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
   SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem,
@@ -17,6 +17,7 @@ const navItems = [
   { title: 'Calendar', url: '/calendar', icon: Calendar },
   { title: 'Blueprints', url: '/blueprints', icon: BookOpen },
   { title: 'Daily Journal', url: '/journal', icon: Notebook },
+  { title: 'Accounts', url: '/accounts', icon: Wallet },
   { title: 'Ledger', url: '/ledger', icon: FileText },
   { title: 'Risk Engine', url: '/risk', icon: Calculator },
   { title: 'Calculators', url: '/calculators', icon: FlaskConical },
@@ -26,7 +27,6 @@ const navItems = [
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
-  const location = useLocation();
   const { signOut, user } = useAuth();
 
   return (
@@ -63,11 +63,14 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="border-t border-sidebar-border p-3">
-        {!collapsed && (
-          <p className="text-xs text-muted-foreground truncate mb-2 px-2">
-            {user?.email}
-          </p>
-        )}
+        <div className="flex items-center justify-between mb-2 px-2">
+          {!collapsed && (
+            <p className="text-xs text-muted-foreground truncate">
+              {user?.email}
+            </p>
+          )}
+          <ThemeToggle />
+        </div>
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton onClick={signOut} className="text-muted-foreground hover:text-destructive">
