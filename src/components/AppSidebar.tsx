@@ -119,6 +119,7 @@ const navGroups: NavGroup[] = [
     label: 'System',
     items: [
       { title: 'Settings', url: '/settings', icon: Settings },
+      { title: 'Install App', url: '/install', icon: Download },
     ],
   },
 ];
