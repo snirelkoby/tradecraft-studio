@@ -1,7 +1,8 @@
 import {
   BarChart3, BookOpen, Calendar, FileText, PenTool,
   Calculator, Settings, LogOut, Notebook, FlaskConical, Wallet, CandlestickChart, Sparkles, Globe, CalendarClock,
-  CalendarRange, Gamepad2, Play, AlertTriangle, DollarSign, GitCompare, Target, ClipboardCheck, Flame, GraduationCap
+  CalendarRange, Gamepad2, Play, AlertTriangle, DollarSign, GitCompare, Target, ClipboardCheck, Flame, GraduationCap,
+  Brain, Link2, Dice5, Trophy
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/hooks/useAuth';
