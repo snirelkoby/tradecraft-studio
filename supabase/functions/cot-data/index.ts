@@ -6,29 +6,30 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// ES first — higher weight
+// CFTC codes for the combined report
 const COT_CODES: Record<string, { code: string; name: string }> = {
-  ES: { code: "13874", name: "S&P 500" },
-  NQ: { code: "209742", name: "NASDAQ MINI" },
+  ES: { code: "13874A", name: "S&P 500 (E-MINI)" },
+  NQ: { code: "209742A", name: "NASDAQ MINI" },
 };
 
-function parseNumber(s: string): number {
-  return parseInt(s.replace(/,/g, "").replace(/\+/g, ""), 10) || 0;
-}
+const CFTC_API = "https://publicreporting.cftc.gov/resource/jun7-fc8e.json";
 
-function parseSignedNumber(s: string): number {
-  const clean = s.replace(/,/g, "").trim();
-  return parseInt(clean, 10) || 0;
+interface CftcRecord {
+  report_date_as_yyyy_mm_dd: string;
+  noncomm_positions_long_all: string;
+  noncomm_positions_short_all: string;
+  open_interest_all: string;
+  change_in_noncomm_long_all: string;
+  change_in_noncomm_short_all: string;
 }
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    // Get auth token for saving history
     const authHeader = req.headers.get("Authorization");
     let userId: string | null = null;
-    
+
     if (authHeader) {
       const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
       const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -39,43 +40,62 @@ serve(async (req) => {
       userId = user?.id || null;
     }
 
+    // Calculate date one year ago
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+    const dateFrom = oneYearAgo.toISOString().split("T")[0];
+
     const results: Record<string, any> = {};
+    const allHistoryRows: any[] = [];
 
     for (const [symbol, cfg] of Object.entries(COT_CODES)) {
-      const url = `https://www.tradingster.com/cot/legacy-futures/${cfg.code}`;
+      // Fetch ~52 weeks from CFTC API
+      const url = `${CFTC_API}?$where=cftc_contract_market_code='${cfg.code}' AND report_date_as_yyyy_mm_dd>='${dateFrom}T00:00:00.000'&$order=report_date_as_yyyy_mm_dd ASC&$limit=60`;
+      
       const resp = await fetch(url);
-      const html = await resp.text();
-
-      let ncLong = 0, ncShort = 0, ncLongChange = 0, ncShortChange = 0;
-      let openInterest = 0;
-      let reportDate = "";
-
-      // Extract report date
-      const dateMatch = html.match(/AS OF:\s*(\d{4}-\d{2}-\d{2})/);
-      if (dateMatch) reportDate = dateMatch[1];
-
-      // Extract Open Interest
-      const oiMatch = html.match(/Open Interest:\s*<span class="number">([\d,]+)<\/span>/);
-      if (oiMatch) openInterest = parseNumber(oiMatch[1]);
-
-      // Parse the main data table - find Non-Commercial long/short (first data row after header)
-      const dataRowMatch = html.match(/<tr>\s*<td class="number">([\d,]+)<\/td>\s*<td class="number">([\d,]+)<\/td>\s*<td class="number">([\d,]+)<\/td>\s*<td class="number">([\d,]+)<\/td>\s*<td class="number">([\d,]+)<\/td>\s*<td class="number">([\d,]+)<\/td>\s*<td class="number">([\d,]+)<\/td>\s*<td class="number">([\d,]+)<\/td>\s*<td class="number">([\d,]+)<\/td>\s*<\/tr>/);
-      
-      if (dataRowMatch) {
-        ncLong = parseNumber(dataRowMatch[1]);
-        ncShort = parseNumber(dataRowMatch[2]);
+      if (!resp.ok) {
+        console.error(`CFTC API error for ${symbol}: ${resp.status}`);
+        continue;
       }
 
-      // Parse changes row - look for positive-num/negative-num spans
-      const changesMatch = html.match(/Changes[\s\S]*?<tr>\s*<td class="number"><span class="(?:positive|negative)-num">([^<]+)<\/span><\/td>\s*<td class="number"><span class="(?:positive|negative)-num">([^<]+)<\/span><\/td>/);
-      
-      if (changesMatch) {
-        ncLongChange = parseSignedNumber(changesMatch[1]);
-        ncShortChange = parseSignedNumber(changesMatch[2]);
+      const records: CftcRecord[] = await resp.json();
+      if (!records.length) continue;
+
+      // Process all records for history
+      for (const rec of records) {
+        const reportDate = rec.report_date_as_yyyy_mm_dd.split("T")[0];
+        const ncLong = parseInt(rec.noncomm_positions_long_all) || 0;
+        const ncShort = parseInt(rec.noncomm_positions_short_all) || 0;
+        const ncNet = ncLong - ncShort;
+        const openInterest = parseInt(rec.open_interest_all) || 0;
+        const ncLongChange = parseInt(rec.change_in_noncomm_long_all) || 0;
+        const ncShortChange = parseInt(rec.change_in_noncomm_short_all) || 0;
+
+        if (userId) {
+          allHistoryRows.push({
+            user_id: userId,
+            symbol,
+            report_date: reportDate,
+            nc_long: ncLong,
+            nc_short: ncShort,
+            nc_net: ncNet,
+            nc_long_change: ncLongChange,
+            nc_short_change: ncShortChange,
+            open_interest: openInterest,
+          });
+        }
       }
 
+      // Use latest record for current display
+      const latest = records[records.length - 1];
+      const ncLong = parseInt(latest.noncomm_positions_long_all) || 0;
+      const ncShort = parseInt(latest.noncomm_positions_short_all) || 0;
+      const ncLongChange = parseInt(latest.change_in_noncomm_long_all) || 0;
+      const ncShortChange = parseInt(latest.change_in_noncomm_short_all) || 0;
       const netPosition = ncLong - ncShort;
       const netChange = ncLongChange - ncShortChange;
+      const openInterest = parseInt(latest.open_interest_all) || 0;
+      const reportDate = latest.report_date_as_yyyy_mm_dd.split("T")[0];
 
       let sentiment: string;
       let weeklyShift: string;
@@ -89,21 +109,9 @@ serve(async (req) => {
       }
 
       if (netPosition > 0) {
-        if (ncLongChange < 0 && ncShortChange > 0) {
-          sentiment = "weakening_bullish";
-        } else if (netChange < 0) {
-          sentiment = "weakening_bullish";
-        } else {
-          sentiment = "bullish";
-        }
+        sentiment = netChange < 0 ? "weakening_bullish" : "bullish";
       } else if (netPosition < 0) {
-        if (ncLongChange > 0 && ncShortChange < 0) {
-          sentiment = "weakening_bearish";
-        } else if (netChange > 0) {
-          sentiment = "weakening_bearish";
-        } else {
-          sentiment = "bearish";
-        }
+        sentiment = netChange > 0 ? "weakening_bearish" : "bearish";
       } else {
         sentiment = "neutral";
       }
@@ -123,28 +131,24 @@ serve(async (req) => {
         sentiment,
         weeklyShift,
       };
+    }
 
-      // Save to history if we have a user
-      if (userId && reportDate) {
-        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-        const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-        const adminClient = createClient(supabaseUrl, serviceKey);
-        
-        await adminClient.from("cot_history").upsert({
-          user_id: userId,
-          symbol,
-          report_date: reportDate,
-          nc_long: ncLong,
-          nc_short: ncShort,
-          nc_net: netPosition,
-          nc_long_change: ncLongChange,
-          nc_short_change: ncShortChange,
-          open_interest: openInterest,
-        }, { onConflict: "user_id,symbol,report_date" });
+    // Bulk save history
+    if (userId && allHistoryRows.length > 0) {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const adminClient = createClient(supabaseUrl, serviceKey);
+
+      // Upsert in batches of 50
+      for (let i = 0; i < allHistoryRows.length; i += 50) {
+        const batch = allHistoryRows.slice(i, i + 50);
+        await adminClient.from("cot_history").upsert(batch, {
+          onConflict: "user_id,symbol,report_date",
+        });
       }
     }
 
-    return new Response(JSON.stringify({ success: true, data: results }), {
+    return new Response(JSON.stringify({ success: true, data: results, historyCount: allHistoryRows.length }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {

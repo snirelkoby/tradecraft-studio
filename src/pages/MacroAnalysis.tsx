@@ -294,7 +294,7 @@ export default function MacroAnalysis() {
         )}
 
         {!cotData && !cotLoading && (
-          <p className="text-sm text-muted-foreground text-center py-4">לחץ על "Load COT Data" כדי לטעון נתוני COT עדכניים מ-Tradingster</p>
+          <p className="text-sm text-muted-foreground text-center py-4">לחץ על "Load COT Data" כדי לטעון נתוני COT היסטוריים (שנה אחורה) מ-CFTC</p>
         )}
       </div>
 
