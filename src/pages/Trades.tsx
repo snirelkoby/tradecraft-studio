@@ -40,6 +40,7 @@ export default function Trades() {
   const [filterAssetType, setFilterAssetType] = useState('all');
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
+  const [filterTag, setFilterTag] = useState('all');
 
   const strategies = useMemo(() => [...new Set((trades ?? []).map(t => t.strategy).filter(Boolean))], [trades]);
   const assetTypes = useMemo(() => [...new Set((trades ?? []).map(t => t.asset_type).filter(Boolean))], [trades]);
