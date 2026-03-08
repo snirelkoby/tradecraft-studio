@@ -134,7 +134,7 @@ export function FredCharts() {
 
       {!data && !loading && (
         <p className="text-sm text-muted-foreground text-center py-4">
-          לחץ "טען נתונים" כדי להציג גרפים של 10Y Yield, Fed Funds Rate, 2Y Yield, Spread ו-DXY
+          לחץ "טען נתונים" כדי להציג גרפים של 10Y Yield, Fed Funds Rate, 2Y Yield, Spread ו-DXY (מקור: FRED + Yahoo Finance)
         </p>
       )}
     </div>
