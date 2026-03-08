@@ -144,16 +144,23 @@ function parseRithmic(text: string, userId: string) {
   // Sort chronologically (oldest first)
   filledOrders.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
 
-  // FIFO match: group by symbol, pair buys with sells
-  const bySymbol = new Map<string, FilledOrder[]>();
+  // Group by symbol AND trading date to avoid cross-day matching
+  const getTradeDate = (time: string) => {
+    const d = new Date(time);
+    return d.toISOString().slice(0, 10); // YYYY-MM-DD
+  };
+
+  const bySymbolAndDay = new Map<string, FilledOrder[]>();
   filledOrders.forEach(o => {
-    if (!bySymbol.has(o.symbol)) bySymbol.set(o.symbol, []);
-    bySymbol.get(o.symbol)!.push(o);
+    const key = `${o.symbol}|${getTradeDate(o.time)}`;
+    if (!bySymbolAndDay.has(key)) bySymbolAndDay.set(key, []);
+    bySymbolAndDay.get(key)!.push(o);
   });
 
   const trades: any[] = [];
 
-  bySymbol.forEach((orders, symbol) => {
+  bySymbolAndDay.forEach((orders, key) => {
+    const symbol = key.split('|')[0];
     const buys: FilledOrder[] = [];
     const sells: FilledOrder[] = [];
 
@@ -162,7 +169,7 @@ function parseRithmic(text: string, userId: string) {
       else sells.push(o);
     });
 
-    // Match FIFO
+    // Match FIFO within same day
     let bi = 0, si = 0;
     let buyRemaining = 0, sellRemaining = 0;
 
