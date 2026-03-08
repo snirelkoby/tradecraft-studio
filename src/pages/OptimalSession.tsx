@@ -77,13 +77,14 @@ export default function OptimalSession() {
 
     // Find optimal
     const optimalBucket = hourBucketData.reduce((best, d) => d.avgPnl > best.avgPnl ? d : best, hourBucketData[0]);
-    const optimalTradeNum = tradeNumChart.length > 0
-      ? tradeNumChart.reduce((best, d) => {
-          // Find where cumulative becomes negative
-          const cumPnl = tradeNumChart.filter(t => t.num <= d.num).reduce((s, t) => s + t.avgPnl, 0);
-          return cumPnl > best.cumPnl ? { ...d, cumPnl } : best;
-        }, { ...tradeNumChart[0], cumPnl: tradeNumChart[0].avgPnl })
-      : null;
+    let bestCum = 0;
+    let bestNum = tradeNumChart[0];
+    let runCum = 0;
+    for (const d of tradeNumChart) {
+      runCum += d.avgPnl;
+      if (runCum > bestCum) { bestCum = runCum; bestNum = d; }
+    }
+    const optimalTradeNum = tradeNumChart.length > 0 ? bestNum : null;
 
     // Cumulative by trade number
     let cum = 0;
