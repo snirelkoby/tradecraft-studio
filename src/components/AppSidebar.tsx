@@ -45,6 +45,8 @@ const navItems = [
   { title: 'Loss Impact', url: '/consecutive-loss', icon: ArrowDownUp },
   { title: 'Optimal Session', url: '/optimal-session', icon: Clock },
   { title: 'Compounding', url: '/compounding', icon: TrendingUp },
+  { title: 'Trade Journal AI', url: '/trade-journal-ai', icon: Bot },
+  { title: 'Emotion Tracker', url: '/emotions', icon: Heart },
   { title: 'Calendar', url: '/calendar', icon: Calendar },
   { title: 'Blueprints', url: '/blueprints', icon: BookOpen },
   { title: 'Daily Journal', url: '/journal', icon: Notebook },
