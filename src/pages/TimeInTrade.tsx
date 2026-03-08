@@ -16,11 +16,10 @@ export default function TimeInTrade() {
 
     const points = closed.map(t => {
       const mins = differenceInMinutes(new Date(t.exit_date!), new Date(t.entry_date));
-      const hours = mins / 60;
       return {
         symbol: t.symbol,
-        duration: hours,
-        durationLabel: hours < 1 ? `${mins}m` : hours < 24 ? `${hours.toFixed(1)}h` : `${(hours / 24).toFixed(1)}d`,
+        duration: mins,
+        durationLabel: mins < 60 ? `${mins}m` : mins < 1440 ? `${(mins / 60).toFixed(1)}h` : `${(mins / 1440).toFixed(1)}d`,
         pnl: t.pnl ?? 0,
         strategy: t.strategy ?? 'N/A',
         win: (t.pnl ?? 0) > 0,
