@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { Plus, Trash2, GripVertical, CheckCircle2, XCircle } from 'lucide-react';
 
@@ -12,58 +13,87 @@ interface ChecklistItem {
   label: string;
   sort_order: number;
   is_active: boolean;
+  blueprint_id: string | null;
+}
+
+interface Blueprint {
+  id: string;
+  name: string;
+  tier: string;
 }
 
 export default function PreTradeChecklist() {
   const { user } = useAuth();
   const [items, setItems] = useState<ChecklistItem[]>([]);
+  const [blueprints, setBlueprints] = useState<Blueprint[]>([]);
   const [loading, setLoading] = useState(true);
   const [newLabel, setNewLabel] = useState('');
   const [checkState, setCheckState] = useState<Record<string, boolean>>({});
+  const [selectedBlueprintId, setSelectedBlueprintId] = useState<string>('all');
 
   useEffect(() => {
     if (!user) return;
-    loadItems();
+    loadData();
   }, [user]);
 
-  const loadItems = async () => {
-    const { data } = await supabase.from('checklist_items').select('*').order('sort_order', { ascending: true });
-    setItems((data ?? []).map(d => ({ id: d.id, label: d.label, sort_order: d.sort_order, is_active: d.is_active })));
+  const loadData = async () => {
+    const [itemsRes, bpRes] = await Promise.all([
+      supabase.from('checklist_items').select('*').order('sort_order', { ascending: true }),
+      supabase.from('blueprints').select('id, name, tier').order('tier', { ascending: true }),
+    ]);
+    setItems((itemsRes.data ?? []).map(d => ({
+      id: d.id,
+      label: d.label,
+      sort_order: d.sort_order,
+      is_active: d.is_active,
+      blueprint_id: (d as any).blueprint_id ?? null,
+    })));
+    setBlueprints((bpRes.data ?? []).map(b => ({ id: b.id, name: b.name ?? '', tier: b.tier })));
     setCheckState({});
     setLoading(false);
   };
 
+  const filteredItems = selectedBlueprintId === 'all'
+    ? items
+    : selectedBlueprintId === 'general'
+      ? items.filter(i => !i.blueprint_id)
+      : items.filter(i => i.blueprint_id === selectedBlueprintId);
+
   const addItem = async () => {
     if (!newLabel.trim() || !user) return;
+    const bpId = selectedBlueprintId === 'all' || selectedBlueprintId === 'general' ? null : selectedBlueprintId;
     const { error } = await supabase.from('checklist_items').insert({
       user_id: user.id,
       label: newLabel.trim(),
-      sort_order: items.length,
+      sort_order: filteredItems.length,
+      blueprint_id: bpId,
     } as any);
     if (error) return toast.error(error.message);
     setNewLabel('');
-    loadItems();
+    loadData();
     toast.success('Item added');
   };
 
   const removeItem = async (id: string) => {
     await supabase.from('checklist_items').delete().eq('id', id);
-    loadItems();
+    loadData();
     toast.success('Item removed');
   };
 
   const toggleActive = async (id: string, active: boolean) => {
     await supabase.from('checklist_items').update({ is_active: !active } as any).eq('id', id);
-    loadItems();
+    loadData();
   };
 
   const toggleCheck = (id: string) => {
     setCheckState(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const activeItems = items.filter(i => i.is_active);
+  const activeItems = filteredItems.filter(i => i.is_active);
   const allChecked = activeItems.length > 0 && activeItems.every(i => checkState[i.id!]);
   const checkedCount = activeItems.filter(i => checkState[i.id!]).length;
+
+  const getBlueprintLabel = (bp: Blueprint) => `${bp.tier} — ${bp.name || 'Unnamed'}`;
 
   if (loading) return <div className="text-muted-foreground text-center py-12">Loading...</div>;
 
@@ -71,7 +101,24 @@ export default function PreTradeChecklist() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Pre-Trade Checklist</h1>
-        <p className="text-muted-foreground text-sm">צ'קליסט חובה לפני כל כניסה לעסקה — ודא שכל התנאים מתקיימים</p>
+        <p className="text-muted-foreground text-sm">צ'קליסט חובה לפני כל כניסה לעסקה — לכל Blueprint בנפרד</p>
+      </div>
+
+      {/* Blueprint selector */}
+      <div className="flex items-center gap-3">
+        <label className="text-sm font-medium">Blueprint:</label>
+        <Select value={selectedBlueprintId} onValueChange={(v) => { setSelectedBlueprintId(v); setCheckState({}); }}>
+          <SelectTrigger className="w-[280px] bg-secondary">
+            <SelectValue placeholder="Select Blueprint" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Checklists</SelectItem>
+            <SelectItem value="general">General (No Blueprint)</SelectItem>
+            {blueprints.map(bp => (
+              <SelectItem key={bp.id} value={bp.id}>{getBlueprintLabel(bp)}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Live checklist */}
@@ -88,7 +135,9 @@ export default function PreTradeChecklist() {
         </div>
 
         {activeItems.length === 0 ? (
-          <p className="text-muted-foreground text-sm text-center py-6">הוסף פריטים לצ'קליסט למטה</p>
+          <p className="text-muted-foreground text-sm text-center py-6">
+            {selectedBlueprintId === 'all' ? 'הוסף פריטים לצ\'קליסט למטה' : 'אין פריטים ל-Blueprint זה — הוסף למטה'}
+          </p>
         ) : (
           <div className="space-y-2">
             {activeItems.map(item => (
@@ -133,10 +182,15 @@ export default function PreTradeChecklist() {
         </div>
 
         <div className="space-y-2">
-          {items.map(item => (
+          {filteredItems.map(item => (
             <div key={item.id} className="flex items-center gap-3 p-3 rounded-lg border border-border bg-secondary/30">
               <GripVertical className="h-4 w-4 text-muted-foreground" />
               <span className={`flex-1 text-sm ${!item.is_active ? 'line-through text-muted-foreground' : ''}`}>{item.label}</span>
+              {item.blueprint_id && (
+                <span className="text-[10px] font-mono text-muted-foreground bg-secondary px-1.5 py-0.5 rounded">
+                  {blueprints.find(b => b.id === item.blueprint_id)?.tier ?? ''}
+                </span>
+              )}
               <Button variant="ghost" size="sm" onClick={() => toggleActive(item.id!, item.is_active)}>
                 {item.is_active ? 'Disable' : 'Enable'}
               </Button>
