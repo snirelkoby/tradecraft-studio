@@ -8,6 +8,7 @@ import { TradeCandlestickChart } from '@/components/dashboard/TradeCandlestickCh
 import { DayOfWeekChart } from '@/components/dashboard/DayOfWeekChart';
 import { StreakAlerts } from '@/components/dashboard/StreakAlerts';
 import { PositionSizerWidget } from '@/components/dashboard/PositionSizerWidget';
+import { QuickStatsWidget } from '@/components/dashboard/QuickStatsWidget';
 import {
   Area, AreaChart, CartesianGrid, XAxis, YAxis, Tooltip,
   ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, LineChart, Line
@@ -33,10 +34,11 @@ const ALL_WIDGETS = [
   { id: 'trade-candles', label: 'Daily Candles (High/Low/Close)' },
   { id: 'day-of-week', label: 'P&L by Day of Week' },
   { id: 'position-sizer', label: 'Quick Position Sizer' },
+  { id: 'quick-stats', label: 'Quick Stats Widget' },
 ] as const;
 
 type WidgetId = typeof ALL_WIDGETS[number]['id'];
-const DEFAULT_WIDGETS: WidgetId[] = ['kpi-main', 'kpi-secondary', 'cum-pnl', 'win-loss-pie', 'daily-bar', 'hourly-pnl', 'trade-candles'];
+const DEFAULT_WIDGETS: WidgetId[] = ['quick-stats', 'kpi-main', 'kpi-secondary', 'cum-pnl', 'win-loss-pie', 'daily-bar', 'hourly-pnl', 'trade-candles'];
 const STORAGE_KEY = 'dashboard-widgets';
 
 export default function Dashboard() {
@@ -167,6 +169,8 @@ export default function Dashboard() {
           <KpiCard title="Total Trades" value={stats.totalTrades.toString()} variant="blue" />
         </div>
       )}
+
+      {has('quick-stats') && <QuickStatsWidget trades={trades} />}
 
       {has('kpi-secondary') && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

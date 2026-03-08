@@ -110,13 +110,18 @@ export default function SettingsPage() {
             ))}
           </div>
           <div className="flex items-center gap-3">
-            <Input
-              type="color"
-              value={hslToHex(colors.accent)}
-              onChange={e => setColors({ accent: hexToHsl(e.target.value) })}
-              className="w-12 h-10 p-1 cursor-pointer bg-secondary"
-            />
-            <span className="text-xs text-muted-foreground font-mono">Custom color picker</span>
+            <label className="relative cursor-pointer">
+              <Input
+                type="color"
+                value={hslToHex(colors.accent)}
+                onChange={e => setColors({ accent: hexToHsl(e.target.value) })}
+                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+              />
+              <div className="w-12 h-10 rounded-lg border-2 border-border flex items-center justify-center" style={{ backgroundColor: `hsl(${colors.accent})` }}>
+                <span className="text-white text-xs font-bold">✎</span>
+              </div>
+            </label>
+            <span className="text-xs text-muted-foreground font-mono">Custom color picker — click to change</span>
           </div>
         </CardContent>
       </Card>

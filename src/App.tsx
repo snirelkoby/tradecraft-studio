@@ -48,6 +48,8 @@ import LuckVsSkill from "./pages/LuckVsSkill";
 import ConsecutiveLoss from "./pages/ConsecutiveLoss";
 import OptimalSession from "./pages/OptimalSession";
 import CompoundingSim from "./pages/CompoundingSim";
+import TradeJournalAI from "./pages/TradeJournalAI";
+import EmotionTracker from "./pages/EmotionTracker";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -109,6 +111,8 @@ const App = () => (
                     <Route path="/consecutive-loss" element={<ConsecutiveLoss />} />
                     <Route path="/optimal-session" element={<OptimalSession />} />
                     <Route path="/compounding" element={<CompoundingSim />} />
+                    <Route path="/trade-journal-ai" element={<TradeJournalAI />} />
+                    <Route path="/emotions" element={<EmotionTracker />} />
                     <Route path="/weekly-review" element={<WeeklyReview />} />
                     <Route path="/journal" element={<Journal />} />
                     <Route path="/ledger" element={<Ledger />} />
