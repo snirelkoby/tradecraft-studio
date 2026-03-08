@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CotHistoryChart } from '@/components/macro/CotHistoryChart';
+import { IndicatorCharts } from '@/components/macro/IndicatorChart';
 
 interface Indicator {
   name: string;
@@ -304,11 +305,16 @@ export default function MacroAnalysis() {
         <CotHistoryChart key={cotHistoryKey} />
       </div>
 
-      {/* Economic Indicators */}
+      {/* Historical Economic Charts */}
+      <div className="rounded-xl border border-border bg-card p-6">
+        <IndicatorCharts />
+      </div>
+
+      {/* Economic Indicators Manual Input */}
       <div className="rounded-xl border border-border bg-card p-6 space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold">Economic Indicators — נתונים כלכליים</h2>
+            <h2 className="text-lg font-semibold">Economic Indicators — הזנה ידנית</h2>
             <p className="text-xs text-muted-foreground">הזן את הערכים האחרונים של הנתונים הכלכליים ובחר את הכיוון</p>
           </div>
           <Button onClick={saveIndicators} disabled={saving} variant="secondary" size="sm">
