@@ -13,7 +13,9 @@ import { format, parseISO, isAfter, isBefore } from 'date-fns';
 import { TradeForm } from '@/components/trades/TradeForm';
 import { TradeDetail } from '@/components/trades/TradeDetail';
 import { CsvImport } from '@/components/trades/CsvImport';
+import { TagPerformance } from '@/components/trades/TagPerformance';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { Database } from '@/integrations/supabase/types';
 
 type Trade = Database['public']['Tables']['trades']['Row'];
@@ -38,9 +40,11 @@ export default function Trades() {
   const [filterAssetType, setFilterAssetType] = useState('all');
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
+  const [filterTag, setFilterTag] = useState('all');
 
   const strategies = useMemo(() => [...new Set((trades ?? []).map(t => t.strategy).filter(Boolean))], [trades]);
   const assetTypes = useMemo(() => [...new Set((trades ?? []).map(t => t.asset_type).filter(Boolean))], [trades]);
+  const allTags = useMemo(() => [...new Set((trades ?? []).flatMap(t => t.tags ?? []))], [trades]);
 
   const filtered = useMemo(() => {
     if (!trades) return [];
@@ -50,11 +54,12 @@ export default function Trades() {
       if (filterStatus !== 'all' && t.status !== filterStatus) return false;
       if (filterStrategy !== 'all' && t.strategy !== filterStrategy) return false;
       if (filterAssetType !== 'all' && t.asset_type !== filterAssetType) return false;
+      if (filterTag !== 'all' && !(t.tags ?? []).includes(filterTag)) return false;
       if (filterDateFrom && isBefore(parseISO(t.entry_date), parseISO(filterDateFrom))) return false;
       if (filterDateTo && isAfter(parseISO(t.entry_date), parseISO(filterDateTo + 'T23:59:59'))) return false;
       return true;
     });
-  }, [trades, filterSymbol, filterDirection, filterStatus, filterStrategy, filterAssetType, filterDateFrom, filterDateTo]);
+  }, [trades, filterSymbol, filterDirection, filterStatus, filterStrategy, filterAssetType, filterTag, filterDateFrom, filterDateTo]);
 
   const toggleSelect = (id: string) => {
     const next = new Set(selectedIds);
@@ -173,11 +178,25 @@ export default function Trades() {
               {strategies.map(s => <SelectItem key={s!} value={s!}>{s}</SelectItem>)}
             </SelectContent>
           </Select>
+          <Select value={filterTag} onValueChange={setFilterTag}>
+            <SelectTrigger className="bg-secondary text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Tags</SelectItem>
+              {allTags.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+            </SelectContent>
+          </Select>
           <Input type="date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} className="bg-secondary text-xs" placeholder="From" />
           <Input type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} className="bg-secondary text-xs" placeholder="To" />
         </div>
       </div>
 
+      <Tabs defaultValue="trades">
+        <TabsList className="bg-secondary border border-border">
+          <TabsTrigger value="trades" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Trades</TabsTrigger>
+          <TabsTrigger value="tag-performance" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Tag Performance</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="trades">
       <div className="rounded-xl border border-border bg-card overflow-hidden">
         {isLoading ? (
           <p className="text-center py-12 text-muted-foreground">Loading...</p>
@@ -198,6 +217,7 @@ export default function Trades() {
                   <TableHead className="text-muted-foreground">Entry</TableHead>
                   <TableHead className="text-muted-foreground">Exit</TableHead>
                   <TableHead className="text-muted-foreground">P&L</TableHead>
+                  <TableHead className="text-muted-foreground">Tags</TableHead>
                   <TableHead className="text-muted-foreground">Strategy</TableHead>
                   <TableHead className="text-muted-foreground">Status</TableHead>
                   <TableHead></TableHead>
@@ -227,6 +247,13 @@ export default function Trades() {
                         </span>
                       ) : '—'}
                     </TableCell>
+                    <TableCell onClick={() => { setSelectedTrade(t); setDetailOpen(true); }}>
+                      <div className="flex gap-1 flex-wrap">
+                        {(t.tags ?? []).map(tag => (
+                          <Badge key={tag} variant="secondary" className="text-[10px] bg-primary/10 text-primary">{tag}</Badge>
+                        ))}
+                      </div>
+                    </TableCell>
                     <TableCell onClick={() => { setSelectedTrade(t); setDetailOpen(true); }}>{t.strategy && <Badge variant="secondary" className="text-xs">{t.strategy}</Badge>}</TableCell>
                     <TableCell onClick={() => { setSelectedTrade(t); setDetailOpen(true); }}><Badge variant={t.status === 'open' ? 'default' : 'secondary'} className="text-xs">{t.status}</Badge></TableCell>
                     <TableCell>
@@ -246,6 +273,15 @@ export default function Trades() {
           </div>
         )}
       </div>
+        </TabsContent>
+
+        <TabsContent value="tag-performance">
+          <div className="rounded-xl border border-border bg-card p-5">
+            <h3 className="text-sm font-semibold mb-4 text-muted-foreground uppercase tracking-wider">Performance by Tag</h3>
+            <TagPerformance trades={trades ?? []} />
+          </div>
+        </TabsContent>
+      </Tabs>
 
       <TradeDetail trade={selectedTrade} open={detailOpen} onOpenChange={setDetailOpen} />
     </div>

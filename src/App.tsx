@@ -7,6 +7,7 @@ import { ThemeProvider } from "next-themes";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { Layout } from "@/components/Layout";
 import { AccountProvider } from "@/hooks/useSelectedAccount";
+import { ThemeColorProvider } from "@/hooks/useThemeColors";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Trades from "./pages/Trades";
@@ -22,6 +23,8 @@ import EconomicCalendar from "./pages/EconomicCalendar";
 import Journal from "./pages/Journal";
 import Accounts from "./pages/Accounts";
 import SettingsPage from "./pages/Settings";
+import WeeklyReview from "./pages/WeeklyReview";
+import Playbook from "./pages/Playbook";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -42,38 +45,42 @@ function AuthRoute() {
 
 const App = () => (
   <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <AuthProvider>
-            <AccountProvider>
-              <Routes>
-                <Route path="/auth" element={<AuthRoute />} />
-                <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-                  <Route path="/" element={<Dashboard />} />
-                  <Route path="/trades" element={<Trades />} />
-                  <Route path="/analysis" element={<TradeAnalysis />} />
-                  <Route path="/ai-insights" element={<AiInsights />} />
-                  <Route path="/calendar" element={<CalendarView />} />
-                  <Route path="/blueprints" element={<Blueprints />} />
-                  <Route path="/journal" element={<Journal />} />
-                  <Route path="/ledger" element={<Ledger />} />
-                  <Route path="/risk" element={<RiskEngine />} />
-                  <Route path="/calculators" element={<Calculators />} />
-                  <Route path="/macro" element={<MacroAnalysis />} />
-                  <Route path="/economic-calendar" element={<EconomicCalendar />} />
-                  <Route path="/accounts" element={<Accounts />} />
-                  <Route path="/settings" element={<SettingsPage />} />
-                </Route>
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </AccountProvider>
-          </AuthProvider>
-        </BrowserRouter>
-      </TooltipProvider>
-    </QueryClientProvider>
+    <ThemeColorProvider>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <AuthProvider>
+              <AccountProvider>
+                <Routes>
+                  <Route path="/auth" element={<AuthRoute />} />
+                  <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+                    <Route path="/" element={<Dashboard />} />
+                    <Route path="/trades" element={<Trades />} />
+                    <Route path="/analysis" element={<TradeAnalysis />} />
+                    <Route path="/ai-insights" element={<AiInsights />} />
+                    <Route path="/calendar" element={<CalendarView />} />
+                    <Route path="/blueprints" element={<Blueprints />} />
+                    <Route path="/playbook" element={<Playbook />} />
+                    <Route path="/weekly-review" element={<WeeklyReview />} />
+                    <Route path="/journal" element={<Journal />} />
+                    <Route path="/ledger" element={<Ledger />} />
+                    <Route path="/risk" element={<RiskEngine />} />
+                    <Route path="/calculators" element={<Calculators />} />
+                    <Route path="/macro" element={<MacroAnalysis />} />
+                    <Route path="/economic-calendar" element={<EconomicCalendar />} />
+                    <Route path="/accounts" element={<Accounts />} />
+                    <Route path="/settings" element={<SettingsPage />} />
+                  </Route>
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </AccountProvider>
+            </AuthProvider>
+          </BrowserRouter>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ThemeColorProvider>
   </ThemeProvider>
 );
 

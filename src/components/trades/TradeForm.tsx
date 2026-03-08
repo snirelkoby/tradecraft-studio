@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { useAddTrade, calculateFuturesPnl } from '@/hooks/useTrades';
+import { useAddTrade, calculateFuturesPnl, useTrades } from '@/hooks/useTrades';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { ASSET_TYPES, FUTURES_CONFIG, FOREX_PAIRS, CRYPTO_SYMBOLS } from '@/lib/assetConfig';
+import { TagInput } from './TagInput';
 
 const STRATEGIES = ['AAA', 'AA', 'A', 'B', 'C', 'D'];
 
@@ -15,6 +16,8 @@ interface TradeFormProps {
 
 export function TradeForm({ onSuccess }: TradeFormProps) {
   const addTrade = useAddTrade();
+  const { data: existingTrades } = useTrades();
+  const [tags, setTags] = useState<string[]>([]);
   const [form, setForm] = useState({
     asset_type: 'Futures' as string,
     symbol: '',
@@ -30,6 +33,8 @@ export function TradeForm({ onSuccess }: TradeFormProps) {
     strategy: '',
     notes: '',
   });
+
+  const allTags = [...new Set((existingTrades ?? []).flatMap(t => t.tags ?? []))];
 
   const isFutures = form.asset_type === 'Futures';
 
@@ -89,6 +94,7 @@ export function TradeForm({ onSuccess }: TradeFormProps) {
         pnl_percent: pnlPercent,
         strategy: form.strategy || null,
         notes: form.notes || null,
+        tags: tags.length > 0 ? tags : null,
         status,
       } as any);
       toast.success(`Trade ${form.symbol.toUpperCase()} recorded`);
@@ -219,6 +225,10 @@ export function TradeForm({ onSuccess }: TradeFormProps) {
             </SelectContent>
           </Select>
         </div>
+      </div>
+      <div>
+        <label className="text-xs text-muted-foreground uppercase mb-1 block">Tags (Blueprint/Setup)</label>
+        <TagInput tags={tags} onChange={setTags} suggestions={allTags} />
       </div>
       <div>
         <label className="text-xs text-muted-foreground uppercase mb-1 block">Notes</label>

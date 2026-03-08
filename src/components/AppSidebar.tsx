@@ -1,6 +1,7 @@
 import {
   BarChart3, BookOpen, Calendar, FileText, PenTool,
-  Calculator, Settings, LogOut, Notebook, FlaskConical, Wallet, CandlestickChart, Sparkles, Globe, CalendarClock
+  Calculator, Settings, LogOut, Notebook, FlaskConical, Wallet, CandlestickChart, Sparkles, Globe, CalendarClock,
+  CalendarRange, Gamepad2
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/hooks/useAuth';
@@ -16,6 +17,8 @@ const navItems = [
   { title: 'Trade Journal', url: '/trades', icon: PenTool },
   { title: 'Trade Analysis', url: '/analysis', icon: CandlestickChart },
   { title: 'AI Insights', url: '/ai-insights', icon: Sparkles },
+  { title: 'Weekly Review', url: '/weekly-review', icon: CalendarRange },
+  { title: 'Playbook', url: '/playbook', icon: Gamepad2 },
   { title: 'Calendar', url: '/calendar', icon: Calendar },
   { title: 'Blueprints', url: '/blueprints', icon: BookOpen },
   { title: 'Daily Journal', url: '/journal', icon: Notebook },
