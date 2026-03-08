@@ -327,6 +327,39 @@ function MonteCarloCalc({ winRate, avgWin, avgLoss, accountSize }: { winRate: st
   );
 }
 
+function SharpeCalc({ winRate, avgWin, avgLoss }: { winRate: string; avgWin: string; avgLoss: string }) {
+  const { vals, set, n } = useCalc({ winRate, avgWin, avgLoss, riskFreeRate: '5', tradesPerYear: '250' });
+  const wr = n('winRate') / 100;
+  const expReturn = (wr * n('avgWin')) - ((1 - wr) * n('avgLoss'));
+  const variance = wr * Math.pow(n('avgWin') - expReturn, 2) + (1 - wr) * Math.pow(-n('avgLoss') - expReturn, 2);
+  const stdDev = Math.sqrt(variance);
+  const annualReturn = expReturn * n('tradesPerYear');
+  const annualStd = stdDev * Math.sqrt(n('tradesPerYear'));
+  const sharpe = annualStd > 0 ? (annualReturn - (n('riskFreeRate') / 100 * n('avgWin') * n('tradesPerYear') * wr)) / annualStd : 0;
+
+  // Sortino — only downside deviation
+  const downsideDev = Math.sqrt(wr * 0 + (1 - wr) * Math.pow(n('avgLoss'), 2));
+  const annualDownside = downsideDev * Math.sqrt(n('tradesPerYear'));
+  const sortino = annualDownside > 0 ? annualReturn / annualDownside : 0;
+
+  return (
+    <CalcCard title="Sharpe & Sortino" description="Sharpe Ratio מודד תשואה מתואמת סיכון — כמה תשואה מקבלים לכל יחידת סיכון. Sortino דומה אבל מתחשב רק בסטייה שלילית (הפסדים), מה שנותן תמונה מדויקת יותר לסוחרים.">
+      <div className="grid grid-cols-3 gap-3">
+        <Field label="Win Rate %" value={vals.winRate} onChange={v => set('winRate', v)} />
+        <Field label="Avg Win ($)" value={vals.avgWin} onChange={v => set('avgWin', v)} />
+        <Field label="Avg Loss ($)" value={vals.avgLoss} onChange={v => set('avgLoss', v)} />
+        <Field label="Risk-Free Rate %" value={vals.riskFreeRate} onChange={v => set('riskFreeRate', v)} />
+        <Field label="Trades/Year" value={vals.tradesPerYear} onChange={v => set('tradesPerYear', v)} />
+      </div>
+      <div className="grid grid-cols-3 gap-3 pt-2">
+        <KpiCard title="Sharpe Ratio" value={sharpe.toFixed(2)} variant={sharpe >= 1 ? 'green' : sharpe >= 0 ? 'blue' : 'red'} />
+        <KpiCard title="Sortino Ratio" value={sortino.toFixed(2)} variant={sortino >= 1.5 ? 'green' : sortino >= 0 ? 'blue' : 'red'} />
+        <KpiCard title="Expectancy" value={`$${expReturn.toFixed(2)}`} variant={expReturn >= 0 ? 'green' : 'red'} />
+      </div>
+    </CalcCard>
+  );
+}
+
 export default function Calculators() {
   const { data: trades } = useTrades();
   const { data: accounts } = useAccounts();
@@ -345,6 +378,7 @@ export default function Calculators() {
 
   const CALCS = [
     { id: 'monte', label: 'Monte Carlo', component: () => <MonteCarloCalc winRate={winRate} avgWin={avgWin} avgLoss={avgLoss} accountSize={accountSize} /> },
+    { id: 'sharpe', label: 'Sharpe/Sortino', component: () => <SharpeCalc winRate={winRate} avgWin={avgWin} avgLoss={avgLoss} /> },
     { id: 'position', label: 'Position Size', component: () => <PositionSizeCalc accountSize={accountSize} /> },
     { id: 'rr', label: 'Risk/Reward', component: RiskRewardCalc },
     { id: 'profit', label: 'Profit', component: ProfitCalc },
