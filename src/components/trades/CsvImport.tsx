@@ -151,11 +151,12 @@ function parseRithmic(text: string, userId: string) {
     return d.toISOString().slice(0, 10); // YYYY-MM-DD
   };
 
-  const bySymbolAndDay = new Map<string, FilledOrder[]>();
+  // Group by account + symbol + trading date for proper FIFO matching
+  const byKey = new Map<string, FilledOrder[]>();
   filledOrders.forEach(o => {
-    const key = `${o.symbol}|${getTradeDate(o.time)}`;
-    if (!bySymbolAndDay.has(key)) bySymbolAndDay.set(key, []);
-    bySymbolAndDay.get(key)!.push(o);
+    const key = `${o.account}|${o.symbol}|${getTradeDate(o.time)}`;
+    if (!byKey.has(key)) byKey.set(key, []);
+    byKey.get(key)!.push(o);
   });
 
   const trades: any[] = [];
