@@ -29,6 +29,10 @@ import TradeReplay from "./pages/TradeReplay";
 import MistakeTracker from "./pages/MistakeTracker";
 import CommissionTracker from "./pages/CommissionTracker";
 import TradeComparison from "./pages/TradeComparison";
+import GoalTracker from "./pages/GoalTracker";
+import PreTradeChecklist from "./pages/PreTradeChecklist";
+import RiskRewardHeatmap from "./pages/RiskRewardHeatmap";
+import AiTradeGrading from "./pages/AiTradeGrading";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -71,6 +75,10 @@ const App = () => (
                     <Route path="/mistakes" element={<MistakeTracker />} />
                     <Route path="/commissions" element={<CommissionTracker />} />
                     <Route path="/compare" element={<TradeComparison />} />
+                    <Route path="/goals" element={<GoalTracker />} />
+                    <Route path="/checklist" element={<PreTradeChecklist />} />
+                    <Route path="/heatmap" element={<RiskRewardHeatmap />} />
+                    <Route path="/trade-grading" element={<AiTradeGrading />} />
                     <Route path="/weekly-review" element={<WeeklyReview />} />
                     <Route path="/journal" element={<Journal />} />
                     <Route path="/ledger" element={<Ledger />} />

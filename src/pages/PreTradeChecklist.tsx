@@ -1,0 +1,152 @@
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
+import { toast } from 'sonner';
+import { Plus, Trash2, GripVertical, CheckCircle2, XCircle } from 'lucide-react';
+
+interface ChecklistItem {
+  id?: string;
+  label: string;
+  sort_order: number;
+  is_active: boolean;
+}
+
+export default function PreTradeChecklist() {
+  const { user } = useAuth();
+  const [items, setItems] = useState<ChecklistItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [newLabel, setNewLabel] = useState('');
+  const [checkState, setCheckState] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (!user) return;
+    loadItems();
+  }, [user]);
+
+  const loadItems = async () => {
+    const { data } = await supabase.from('checklist_items').select('*').order('sort_order', { ascending: true });
+    setItems((data ?? []).map(d => ({ id: d.id, label: d.label, sort_order: d.sort_order, is_active: d.is_active })));
+    setCheckState({});
+    setLoading(false);
+  };
+
+  const addItem = async () => {
+    if (!newLabel.trim() || !user) return;
+    const { error } = await supabase.from('checklist_items').insert({
+      user_id: user.id,
+      label: newLabel.trim(),
+      sort_order: items.length,
+    } as any);
+    if (error) return toast.error(error.message);
+    setNewLabel('');
+    loadItems();
+    toast.success('Item added');
+  };
+
+  const removeItem = async (id: string) => {
+    await supabase.from('checklist_items').delete().eq('id', id);
+    loadItems();
+    toast.success('Item removed');
+  };
+
+  const toggleActive = async (id: string, active: boolean) => {
+    await supabase.from('checklist_items').update({ is_active: !active } as any).eq('id', id);
+    loadItems();
+  };
+
+  const toggleCheck = (id: string) => {
+    setCheckState(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const activeItems = items.filter(i => i.is_active);
+  const allChecked = activeItems.length > 0 && activeItems.every(i => checkState[i.id!]);
+  const checkedCount = activeItems.filter(i => checkState[i.id!]).length;
+
+  if (loading) return <div className="text-muted-foreground text-center py-12">Loading...</div>;
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Pre-Trade Checklist</h1>
+        <p className="text-muted-foreground text-sm">צ'קליסט חובה לפני כל כניסה לעסקה — ודא שכל התנאים מתקיימים</p>
+      </div>
+
+      {/* Live checklist */}
+      <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="font-bold text-lg">Quick Check</h3>
+          <div className="flex items-center gap-2">
+            {allChecked ? (
+              <span className="flex items-center gap-1 text-sm font-bold text-chart-green"><CheckCircle2 className="h-5 w-5" /> GO — All Clear</span>
+            ) : (
+              <span className="flex items-center gap-1 text-sm font-bold text-chart-red"><XCircle className="h-5 w-5" /> {checkedCount}/{activeItems.length} Complete</span>
+            )}
+          </div>
+        </div>
+
+        {activeItems.length === 0 ? (
+          <p className="text-muted-foreground text-sm text-center py-6">הוסף פריטים לצ'קליסט למטה</p>
+        ) : (
+          <div className="space-y-2">
+            {activeItems.map(item => (
+              <label
+                key={item.id}
+                className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                  checkState[item.id!]
+                    ? 'border-chart-green/30 bg-chart-green/5'
+                    : 'border-border bg-secondary/50'
+                }`}
+              >
+                <Checkbox
+                  checked={!!checkState[item.id!]}
+                  onCheckedChange={() => toggleCheck(item.id!)}
+                />
+                <span className={`text-sm ${checkState[item.id!] ? 'line-through text-muted-foreground' : ''}`}>
+                  {item.label}
+                </span>
+              </label>
+            ))}
+          </div>
+        )}
+
+        {activeItems.length > 0 && (
+          <Button variant="outline" size="sm" onClick={() => setCheckState({})}>Reset Checklist</Button>
+        )}
+      </div>
+
+      {/* Manage items */}
+      <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+        <h3 className="font-bold text-lg">Manage Checklist Items</h3>
+
+        <div className="flex gap-2">
+          <Input
+            value={newLabel}
+            onChange={e => setNewLabel(e.target.value)}
+            placeholder='e.g., "Checked HTF trend direction"'
+            className="bg-secondary"
+            onKeyDown={e => e.key === 'Enter' && addItem()}
+          />
+          <Button onClick={addItem}><Plus className="h-4 w-4 mr-1" /> Add</Button>
+        </div>
+
+        <div className="space-y-2">
+          {items.map(item => (
+            <div key={item.id} className="flex items-center gap-3 p-3 rounded-lg border border-border bg-secondary/30">
+              <GripVertical className="h-4 w-4 text-muted-foreground" />
+              <span className={`flex-1 text-sm ${!item.is_active ? 'line-through text-muted-foreground' : ''}`}>{item.label}</span>
+              <Button variant="ghost" size="sm" onClick={() => toggleActive(item.id!, item.is_active)}>
+                {item.is_active ? 'Disable' : 'Enable'}
+              </Button>
+              <Button variant="ghost" size="icon" onClick={() => removeItem(item.id!)}>
+                <Trash2 className="h-4 w-4 text-destructive" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}

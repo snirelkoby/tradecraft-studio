@@ -1,7 +1,7 @@
 import {
   BarChart3, BookOpen, Calendar, FileText, PenTool,
   Calculator, Settings, LogOut, Notebook, FlaskConical, Wallet, CandlestickChart, Sparkles, Globe, CalendarClock,
-  CalendarRange, Gamepad2, Play, AlertTriangle, DollarSign, GitCompare
+  CalendarRange, Gamepad2, Play, AlertTriangle, DollarSign, GitCompare, Target, ClipboardCheck, Flame, GraduationCap
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/hooks/useAuth';
@@ -23,6 +23,10 @@ const navItems = [
   { title: 'Mistake Tracker', url: '/mistakes', icon: AlertTriangle },
   { title: 'Commissions', url: '/commissions', icon: DollarSign },
   { title: 'Trade Compare', url: '/compare', icon: GitCompare },
+  { title: 'Trade Grading', url: '/trade-grading', icon: GraduationCap },
+  { title: 'Goal Tracker', url: '/goals', icon: Target },
+  { title: 'Pre-Trade Check', url: '/checklist', icon: ClipboardCheck },
+  { title: 'R:R Heatmap', url: '/heatmap', icon: Flame },
   { title: 'Calendar', url: '/calendar', icon: Calendar },
   { title: 'Blueprints', url: '/blueprints', icon: BookOpen },
   { title: 'Daily Journal', url: '/journal', icon: Notebook },
