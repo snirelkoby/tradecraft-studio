@@ -42,6 +42,12 @@ import RuleViolations from "./pages/RuleViolations";
 import SessionPlanner from "./pages/SessionPlanner";
 import AbStrategyTester from "./pages/AbStrategyTester";
 import TimeInTrade from "./pages/TimeInTrade";
+import TradeDna from "./pages/TradeDna";
+import MarketRegime from "./pages/MarketRegime";
+import LuckVsSkill from "./pages/LuckVsSkill";
+import ConsecutiveLoss from "./pages/ConsecutiveLoss";
+import OptimalSession from "./pages/OptimalSession";
+import CompoundingSim from "./pages/CompoundingSim";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
