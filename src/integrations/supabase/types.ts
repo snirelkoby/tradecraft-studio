@@ -195,6 +195,33 @@ export type Database = {
         }
         Relationships: []
       }
+      checklist_items: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          label: string
+          sort_order: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          label: string
+          sort_order?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          label?: string
+          sort_order?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       cot_history: {
         Row: {
           created_at: string
@@ -282,6 +309,45 @@ export type Database = {
           title?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      goals: {
+        Row: {
+          created_at: string
+          id: string
+          max_drawdown_target: number | null
+          max_trades_target: number | null
+          month: string
+          notes: string | null
+          pnl_target: number | null
+          updated_at: string
+          user_id: string
+          win_rate_target: number | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          max_drawdown_target?: number | null
+          max_trades_target?: number | null
+          month: string
+          notes?: string | null
+          pnl_target?: number | null
+          updated_at?: string
+          user_id: string
+          win_rate_target?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          max_drawdown_target?: number | null
+          max_trades_target?: number | null
+          month?: string
+          notes?: string | null
+          pnl_target?: number | null
+          updated_at?: string
+          user_id?: string
+          win_rate_target?: number | null
         }
         Relationships: []
       }
