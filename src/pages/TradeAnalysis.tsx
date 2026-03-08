@@ -1,10 +1,10 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useTrades } from '@/hooks/useTrades';
-import { useAccounts } from '@/hooks/useAccounts';
+import { useSelectedAccount } from '@/hooks/useSelectedAccount';
 import { format, parseISO, isAfter, isBefore } from 'date-fns';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
 import {
   ResponsiveContainer, ComposedChart, Bar, XAxis, YAxis,
   Tooltip, CartesianGrid, Cell, AreaChart, Area, BarChart, Line,
@@ -70,12 +70,11 @@ const CandleBarShape = (props: any) => {
 
 export default function TradeAnalysis() {
   const { data: trades, isLoading } = useTrades();
-  const { data: accounts } = useAccounts();
+  const { selectedAccount } = useSelectedAccount();
   const [activeView, setActiveView] = useState<ViewId>('trade-candles');
   const [mode, setMode] = useState<'per-trade' | 'daily' | 'monthly'>('per-trade');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [selectedAccount, setSelectedAccount] = useState<string>('all');
   const [yahooData, setYahooData] = useState<Record<string, YahooResult | null>>({});
   const [loadingYahoo, setLoadingYahoo] = useState(false);
 
@@ -516,20 +515,7 @@ export default function TradeAnalysis() {
       </div>
 
       <div className="flex flex-col lg:flex-row gap-4">
-        {/* Left sidebar */}
         <div className="lg:w-56 flex-shrink-0 space-y-3">
-          {/* Account selector */}
-          <Select value={selectedAccount} onValueChange={setSelectedAccount}>
-            <SelectTrigger className="w-full bg-secondary text-sm">
-              <SelectValue placeholder="All Accounts" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Accounts</SelectItem>
-              {accounts?.map(a => (
-                <SelectItem key={a.id} value={a.name}>{a.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
 
           <div className="space-y-1">
             {VIEWS.map(v => (

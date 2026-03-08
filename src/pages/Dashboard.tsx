@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useTrades, useTradeStats } from '@/hooks/useTrades';
+import { useSelectedAccount } from '@/hooks/useSelectedAccount';
 import { KpiCard } from '@/components/KpiCard';
 import { computeFullAnalytics } from '@/lib/analytics';
 import { HourlyPnlChart } from '@/components/dashboard/HourlyPnlChart';
@@ -36,7 +37,15 @@ const DEFAULT_WIDGETS: WidgetId[] = ['kpi-main', 'kpi-secondary', 'cum-pnl', 'wi
 const STORAGE_KEY = 'dashboard-widgets';
 
 export default function Dashboard() {
-  const { data: trades, isLoading } = useTrades();
+  const { data: allTrades, isLoading } = useTrades();
+  const { selectedAccount } = useSelectedAccount();
+
+  const trades = useMemo(() => {
+    if (!allTrades) return undefined;
+    if (selectedAccount === 'all') return allTrades;
+    return allTrades.filter(t => t.account_name === selectedAccount);
+  }, [allTrades, selectedAccount]);
+
   const stats = useTradeStats(trades);
   const analytics = computeFullAnalytics(trades ?? []);
 

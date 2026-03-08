@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { Layout } from "@/components/Layout";
+import { AccountProvider } from "@/hooks/useSelectedAccount";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Trades from "./pages/Trades";
@@ -44,23 +45,25 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <AuthProvider>
-            <Routes>
-              <Route path="/auth" element={<AuthRoute />} />
-              <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-                <Route path="/" element={<Dashboard />} />
-              <Route path="/trades" element={<Trades />} />
-              <Route path="/analysis" element={<TradeAnalysis />} />
-                <Route path="/calendar" element={<CalendarView />} />
-                <Route path="/blueprints" element={<Blueprints />} />
-                <Route path="/journal" element={<Journal />} />
-                <Route path="/ledger" element={<Ledger />} />
-                <Route path="/risk" element={<RiskEngine />} />
-                <Route path="/calculators" element={<Calculators />} />
-                <Route path="/accounts" element={<Accounts />} />
-                <Route path="/settings" element={<SettingsPage />} />
-              </Route>
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+            <AccountProvider>
+              <Routes>
+                <Route path="/auth" element={<AuthRoute />} />
+                <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/trades" element={<Trades />} />
+                  <Route path="/analysis" element={<TradeAnalysis />} />
+                  <Route path="/calendar" element={<CalendarView />} />
+                  <Route path="/blueprints" element={<Blueprints />} />
+                  <Route path="/journal" element={<Journal />} />
+                  <Route path="/ledger" element={<Ledger />} />
+                  <Route path="/risk" element={<RiskEngine />} />
+                  <Route path="/calculators" element={<Calculators />} />
+                  <Route path="/accounts" element={<Accounts />} />
+                  <Route path="/settings" element={<SettingsPage />} />
+                </Route>
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </AccountProvider>
           </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>

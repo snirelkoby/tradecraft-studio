@@ -53,11 +53,10 @@ async function fetchYahooData(symbol: string, startDate: string, endDate: string
   // Add buffer
   const period2 = Math.floor((endMs + 86400000) / 1000);
   
-  // Determine interval: if same day, use 5m for more precise intraday data
-  const sameDay = new Date(startDate).toDateString() === new Date(endDate || startDate).toDateString();
+  // Use 1m interval for best precision (available for last ~7 days)
+  // Fallback: 5m (last ~60 days), 15m, 1d
   const daysDiff = Math.ceil((endMs - startMs) / 86400000);
-  // Yahoo limits: 5m data available for last ~60 days, 1h for ~730 days
-  const interval = sameDay ? '5m' : daysDiff <= 5 ? '15m' : '1d';
+  const interval = daysDiff <= 7 ? '1m' : daysDiff <= 30 ? '5m' : daysDiff <= 60 ? '15m' : '1d';
 
   const tickers = getYahooSymbol(symbol);
 
