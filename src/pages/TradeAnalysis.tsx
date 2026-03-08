@@ -189,7 +189,7 @@ export default function TradeAnalysis() {
         direction: t.direction,
       };
     });
-  }, [closed, yahooData, calcPnlAtPrice]);
+  }, [closed, yahooData, calcWickPnl]);
 
   const dailyCandles = useMemo(() => {
     const dayMap = new Map<string, Trade[]>();
