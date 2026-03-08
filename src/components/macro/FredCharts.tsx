@@ -86,7 +86,7 @@ export function FredCharts() {
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
             <XAxis dataKey="date" tickFormatter={formatDate} tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
             <YAxis
-              tickFormatter={v => `${v}%`}
+              tickFormatter={v => indicator.format === 'percent' ? `${v}%` : `${v}`}
               tick={{ fontSize: 10 }}
               stroke="hsl(var(--muted-foreground))"
             />
