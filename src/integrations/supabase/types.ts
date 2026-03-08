@@ -44,6 +44,45 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_insights: {
+        Row: {
+          account_filter: string | null
+          created_at: string
+          date_from: string | null
+          date_to: string | null
+          id: string
+          insights: string
+          total_pnl: number | null
+          trades_count: number
+          user_id: string
+          win_rate: number | null
+        }
+        Insert: {
+          account_filter?: string | null
+          created_at?: string
+          date_from?: string | null
+          date_to?: string | null
+          id?: string
+          insights: string
+          total_pnl?: number | null
+          trades_count?: number
+          user_id: string
+          win_rate?: number | null
+        }
+        Update: {
+          account_filter?: string | null
+          created_at?: string
+          date_from?: string | null
+          date_to?: string | null
+          id?: string
+          insights?: string
+          total_pnl?: number | null
+          trades_count?: number
+          user_id?: string
+          win_rate?: number | null
+        }
+        Relationships: []
+      }
       blueprints: {
         Row: {
           checklist: string | null
