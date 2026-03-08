@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Plus, Trash2, Wallet, Pencil, ArrowDownLeft, ArrowUpRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
+import { StockWatchlist } from '@/components/accounts/StockWatchlist';
 
 const ACCOUNT_TYPES = [
   { value: 'day_trading', label: 'Day Trading' },
