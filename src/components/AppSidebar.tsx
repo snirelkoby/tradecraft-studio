@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   BarChart3, BookOpen, Calendar, FileText, PenTool,
   Calculator, Settings, LogOut, FlaskConical, Wallet, CandlestickChart, Sparkles, Globe, CalendarClock,
@@ -197,8 +197,32 @@ export function AppSidebar() {
   );
 }
 
+const STORAGE_KEY = 'sidebar-open-groups';
+
+function loadOpenGroups(): Record<string, boolean> {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    return stored ? JSON.parse(stored) : {};
+  } catch { return {}; }
+}
+
+function saveOpenGroups(state: Record<string, boolean>) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
 function CollapsibleNavGroup({ group, collapsed, forceOpen }: { group: NavGroup; collapsed: boolean; forceOpen: boolean }) {
-  const [open, setOpen] = useState(group.defaultOpen ?? false);
+  const [open, setOpen] = useState(() => {
+    const stored = loadOpenGroups();
+    return stored[group.label] ?? group.defaultOpen ?? false;
+  });
+
+  const handleToggle = useCallback((value: boolean) => {
+    setOpen(value);
+    const current = loadOpenGroups();
+    current[group.label] = value;
+    saveOpenGroups(current);
+  }, [group.label]);
+
   const isOpen = forceOpen || open;
 
   if (collapsed) {
@@ -218,12 +242,12 @@ function CollapsibleNavGroup({ group, collapsed, forceOpen }: { group: NavGroup;
   }
 
   return (
-    <Collapsible open={isOpen} onOpenChange={setOpen}>
+    <Collapsible open={isOpen} onOpenChange={handleToggle}>
       <CollapsibleTrigger className="flex items-center w-full px-4 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors">
-        <ChevronDown className={`h-3 w-3 mr-1.5 transition-transform ${isOpen ? '' : '-rotate-90'}`} />
+        <ChevronDown className={`h-3 w-3 mr-1.5 transition-transform duration-200 ${isOpen ? '' : '-rotate-90'}`} />
         {group.label}
       </CollapsibleTrigger>
-      <CollapsibleContent>
+      <CollapsibleContent className="data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up overflow-hidden">
         <SidebarMenu>
           {group.items.map(item => (
             <SidebarMenuItem key={item.title}>
