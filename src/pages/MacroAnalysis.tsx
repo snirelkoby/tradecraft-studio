@@ -8,6 +8,7 @@ import { Loader2, TrendingUp, TrendingDown, Minus, RefreshCw, Save, AlertTriangl
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { CotHistoryChart } from '@/components/macro/CotHistoryChart';
 
 interface Indicator {
   name: string;
@@ -55,6 +56,9 @@ const DIRECTIONS = [
   { value: 'miss', label: '✗ נמוך מהצפי' },
 ];
 
+// Display order: ES first (primary), then NQ
+const SYMBOL_ORDER = ['ES', 'NQ'];
+
 export default function MacroAnalysis() {
   const { user } = useAuth();
   const [indicators, setIndicators] = useState<Indicator[]>(DEFAULT_INDICATORS);
@@ -63,8 +67,8 @@ export default function MacroAnalysis() {
   const [aiAnalysis, setAiAnalysis] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [cotHistoryKey, setCotHistoryKey] = useState(0);
 
-  // Load saved indicators on mount
   useEffect(() => {
     if (!user) return;
     supabase
@@ -75,7 +79,6 @@ export default function MacroAnalysis() {
       .then(({ data }) => {
         if (data?.indicators) {
           const saved = data.indicators as unknown as Indicator[];
-          // Merge saved values into default structure
           setIndicators(DEFAULT_INDICATORS.map(def => {
             const found = saved.find((s: Indicator) => s.name === def.name);
             return found ? { ...def, value: found.value, direction: found.direction } : def;
@@ -107,11 +110,16 @@ export default function MacroAnalysis() {
   const fetchCotData = async () => {
     setCotLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('cot-data');
+      // Pass auth token so edge function can save history
+      const { data: { session } } = await supabase.auth.getSession();
+      const { data, error } = await supabase.functions.invoke('cot-data', {
+        headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
+      });
       if (error) throw error;
       if (data?.success) {
         setCotData(data.data);
-        toast.success('COT data loaded');
+        setCotHistoryKey(prev => prev + 1); // refresh chart
+        toast.success('COT data loaded & saved to history');
       } else {
         throw new Error(data?.error || 'Failed');
       }
@@ -208,6 +216,11 @@ export default function MacroAnalysis() {
     return 'ללא שינוי';
   };
 
+  // Get ordered symbols for display (ES first)
+  const orderedSymbols = cotData
+    ? SYMBOL_ORDER.filter(s => s in cotData)
+    : [];
+
   return (
     <div className="space-y-6">
       <div>
@@ -226,41 +239,69 @@ export default function MacroAnalysis() {
         </div>
 
         {cotData && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {Object.entries(cotData).map(([symbol, data]) => (
-              <div key={symbol} className="rounded-lg border border-border bg-secondary/50 p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-bold text-lg">{symbol} <span className="text-sm text-muted-foreground font-normal">({data.name})</span></h3>
-                    <p className="text-xs text-muted-foreground">Report Date: {data.reportDate}</p>
+          <div className="space-y-4">
+            {orderedSymbols.map((symbol, idx) => {
+              const data = cotData[symbol];
+              const isES = symbol === 'ES';
+              return (
+                <div
+                  key={symbol}
+                  className={`rounded-lg border p-4 space-y-3 ${
+                    isES
+                      ? 'border-primary/50 bg-primary/5 ring-1 ring-primary/20'
+                      : 'border-border bg-secondary/50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {isES && (
+                        <span className="text-[10px] font-bold uppercase tracking-wider bg-primary/20 text-primary px-2 py-0.5 rounded">
+                          Primary
+                        </span>
+                      )}
+                      <h3 className={`font-bold ${isES ? 'text-xl' : 'text-lg'}`}>
+                        {symbol}{' '}
+                        <span className="text-sm text-muted-foreground font-normal">({data.name})</span>
+                      </h3>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {getSentimentIcon(data.sentiment)}
+                      <span className={`text-sm font-medium ${getSentimentColor(data.sentiment)}`}>
+                        {getSentimentLabel(data.sentiment)}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {getSentimentIcon(data.sentiment)}
-                    <span className={`text-sm font-medium ${getSentimentColor(data.sentiment)}`}>
-                      {getSentimentLabel(data.sentiment)}
-                    </span>
+
+                  <p className="text-xs text-muted-foreground">
+                    Report Date: {data.reportDate} · Open Interest: {data.openInterest.toLocaleString()}
+                  </p>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <KpiCard title="Longs" value={data.nonCommercial.long.toLocaleString()} variant="green" />
+                    <KpiCard title="Shorts" value={data.nonCommercial.short.toLocaleString()} variant="red" />
+                    <KpiCard title="Net" value={data.nonCommercial.net.toLocaleString()} variant={data.nonCommercial.net > 0 ? 'green' : 'red'} />
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <KpiCard title="Long Δ" value={`${data.nonCommercial.longChange > 0 ? '+' : ''}${data.nonCommercial.longChange.toLocaleString()}`} variant={data.nonCommercial.longChange > 0 ? 'green' : 'red'} />
+                    <KpiCard title="Short Δ" value={`${data.nonCommercial.shortChange > 0 ? '+' : ''}${data.nonCommercial.shortChange.toLocaleString()}`} variant={data.nonCommercial.shortChange > 0 ? 'red' : 'green'} />
+                    <KpiCard title="Weekly Shift" value={getShiftLabel(data.weeklyShift)} variant={data.weeklyShift === 'more_bullish' ? 'green' : data.weeklyShift === 'more_bearish' ? 'red' : 'blue'} />
                   </div>
                 </div>
-
-                <div className="grid grid-cols-3 gap-2">
-                  <KpiCard title="Longs" value={data.nonCommercial.long.toLocaleString()} variant="green" />
-                  <KpiCard title="Shorts" value={data.nonCommercial.short.toLocaleString()} variant="red" />
-                  <KpiCard title="Net" value={data.nonCommercial.net.toLocaleString()} variant={data.nonCommercial.net > 0 ? 'green' : 'red'} />
-                </div>
-
-                <div className="grid grid-cols-3 gap-2">
-                  <KpiCard title="Long Δ" value={`${data.nonCommercial.longChange > 0 ? '+' : ''}${data.nonCommercial.longChange.toLocaleString()}`} variant={data.nonCommercial.longChange > 0 ? 'green' : 'red'} />
-                  <KpiCard title="Short Δ" value={`${data.nonCommercial.shortChange > 0 ? '+' : ''}${data.nonCommercial.shortChange.toLocaleString()}`} variant={data.nonCommercial.shortChange > 0 ? 'red' : 'green'} />
-                  <KpiCard title="Weekly Shift" value={getShiftLabel(data.weeklyShift)} variant={data.weeklyShift === 'more_bullish' ? 'green' : data.weeklyShift === 'more_bearish' ? 'red' : 'blue'} />
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
         {!cotData && !cotLoading && (
           <p className="text-sm text-muted-foreground text-center py-4">לחץ על "Load COT Data" כדי לטעון נתוני COT עדכניים מ-Tradingster</p>
         )}
+      </div>
+
+      {/* COT History Chart */}
+      <div className="rounded-xl border border-border bg-card p-6">
+        <h2 className="text-lg font-semibold mb-4">COT Positions History — גרף היסטורי</h2>
+        <CotHistoryChart key={cotHistoryKey} />
       </div>
 
       {/* Economic Indicators */}
