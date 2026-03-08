@@ -30,7 +30,15 @@ function parseDeepCharts(text: string, userId: string) {
     throw new Error('Missing required columns: Symbol, DT, Quantity, Entry, Exit, ProfitLoss');
   }
 
-  return lines.slice(1).filter(l => l.trim()).map(line => {
+  // Check if there's a status column and filter only Filled
+  const statusIdx = headers.findIndex(h => h.toLowerCase() === 'status' || h.toLowerCase() === 'orderstatus');
+
+  return lines.slice(1).filter(l => l.trim()).filter(line => {
+    if (statusIdx === -1) return true;
+    const vals = line.split(';').map(v => v.trim());
+    const status = vals[statusIdx]?.toLowerCase() ?? '';
+    return status === 'filled' || status === '';
+  }).map(line => {
     const vals = line.split(';').map(v => v.trim());
     const qty = parseFloat(vals[qtyIdx]);
     const direction = qty < 0 ? 'short' : 'long';
