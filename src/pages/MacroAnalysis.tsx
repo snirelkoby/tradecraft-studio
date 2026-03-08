@@ -300,6 +300,11 @@ export default function MacroAnalysis() {
         )}
       </div>
 
+      {/* Options Sentiment */}
+      <div className="rounded-xl border border-border bg-card p-6">
+        <OptionsSentiment />
+      </div>
+
       {/* COT History Chart */}
       <div className="rounded-xl border border-border bg-card p-6">
         <h2 className="text-lg font-semibold mb-4">COT Positions History — גרף היסטורי</h2>
