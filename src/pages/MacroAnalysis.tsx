@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { CotHistoryChart } from '@/components/macro/CotHistoryChart';
 import { IndicatorCharts } from '@/components/macro/IndicatorChart';
 import { OptionsSentiment } from '@/components/macro/OptionsSentiment';
+import { FredCharts } from '@/components/macro/FredCharts';
 
 interface Indicator {
   name: string;
