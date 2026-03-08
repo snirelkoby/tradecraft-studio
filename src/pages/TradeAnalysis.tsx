@@ -31,15 +31,22 @@ type ViewId = typeof VIEWS[number]['id'];
 
 interface YahooResult { high: number; low: number; }
 
-// Custom crosshair cursor for charts
+// Custom crosshair cursor that follows mouse position (both axes)
 const CrosshairCursor = (props: any) => {
-  const { points, width, height, top, left } = props;
-  if (!points || !points[0]) return null;
-  const { x, y } = points[0];
+  const { points, width, height, top, left, coordinate } = props;
+  // Get coordinates from points array or coordinate object
+  const pt = points?.[0] ?? coordinate;
+  if (!pt) return null;
+  const x = pt.x ?? 0;
+  const y = pt.y ?? 0;
+  const chartTop = top ?? 0;
+  const chartLeft = left ?? 0;
+  const chartWidth = width ?? 0;
+  const chartHeight = height ?? 0;
   return (
     <g>
-      <line x1={x} y1={top} x2={x} y2={top + height} stroke="hsl(var(--muted-foreground))" strokeWidth={1} strokeDasharray="4 3" strokeOpacity={0.6} />
-      <line x1={left} y1={y} x2={left + width} y2={y} stroke="hsl(var(--muted-foreground))" strokeWidth={1} strokeDasharray="4 3" strokeOpacity={0.6} />
+      <line x1={x} y1={chartTop} x2={x} y2={chartTop + chartHeight} stroke="hsl(var(--muted-foreground))" strokeWidth={1} strokeDasharray="4 3" strokeOpacity={0.6} />
+      <line x1={chartLeft} y1={y} x2={chartLeft + chartWidth} y2={y} stroke="hsl(var(--muted-foreground))" strokeWidth={1} strokeDasharray="4 3" strokeOpacity={0.6} />
       <circle cx={x} cy={y} r={4} fill="hsl(var(--primary))" stroke="hsl(var(--background))" strokeWidth={2} />
     </g>
   );
