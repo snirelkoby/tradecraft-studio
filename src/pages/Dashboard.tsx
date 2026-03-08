@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import { useTrades, useTradeStats } from '@/hooks/useTrades';
 import { KpiCard } from '@/components/KpiCard';
 import { computeFullAnalytics } from '@/lib/analytics';
+import { HourlyPnlChart } from '@/components/dashboard/HourlyPnlChart';
+import { TradeCandlestickChart } from '@/components/dashboard/TradeCandlestickChart';
+import { DayOfWeekChart } from '@/components/dashboard/DayOfWeekChart';
 import {
   Area, AreaChart, CartesianGrid, XAxis, YAxis, Tooltip,
   ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, LineChart, Line
@@ -23,10 +26,13 @@ const ALL_WIDGETS = [
   { id: 'by-symbol', label: 'P&L by Symbol' },
   { id: 'risk-metrics', label: 'Risk Metrics (Sharpe, Sortino, DD)' },
   { id: 'streak', label: 'Streak Analysis' },
+  { id: 'hourly-pnl', label: 'P&L by Hour' },
+  { id: 'trade-candles', label: 'Daily Candles (High/Low/Close)' },
+  { id: 'day-of-week', label: 'P&L by Day of Week' },
 ] as const;
 
 type WidgetId = typeof ALL_WIDGETS[number]['id'];
-const DEFAULT_WIDGETS: WidgetId[] = ['kpi-main', 'kpi-secondary', 'cum-pnl', 'win-loss-pie', 'daily-bar'];
+const DEFAULT_WIDGETS: WidgetId[] = ['kpi-main', 'kpi-secondary', 'cum-pnl', 'win-loss-pie', 'daily-bar', 'hourly-pnl', 'trade-candles'];
 const STORAGE_KEY = 'dashboard-widgets';
 
 export default function Dashboard() {
@@ -71,17 +77,15 @@ export default function Dashboard() {
   const dailyData = Array.from(dailyMap.entries()).map(([date, pnl]) => ({ date, pnl }));
 
   const pieData = [
-    { name: 'Wins', value: stats.wins, color: 'hsl(142, 71%, 45%)' },
-    { name: 'Losses', value: stats.losses, color: 'hsl(0, 72%, 51%)' },
+    { name: 'Wins', value: stats.wins, color: 'hsl(var(--chart-green))' },
+    { name: 'Losses', value: stats.losses, color: 'hsl(var(--chart-red))' },
   ];
 
-  // Strategy breakdown
   const strategyData = [...new Set(closed.map(t => t.strategy).filter(Boolean))].map(s => {
     const st = closed.filter(t => t.strategy === s);
     return { strategy: s!, pnl: st.reduce((sum, t) => sum + (t.pnl ?? 0), 0), trades: st.length };
   });
 
-  // Symbol breakdown
   const symbolData = [...new Set(closed.map(t => t.symbol))].map(sym => {
     const st = closed.filter(t => t.symbol === sym);
     return { symbol: sym, pnl: st.reduce((sum, t) => sum + (t.pnl ?? 0), 0), trades: st.length };
@@ -91,6 +95,13 @@ export default function Dashboard() {
   const streakCat = analytics.find(a => a.category === 'Streak Analysis');
 
   const has = (id: WidgetId) => activeWidgets.includes(id);
+
+  const tooltipStyle = {
+    background: 'hsl(var(--popover))',
+    border: '1px solid hsl(var(--border))',
+    borderRadius: 8,
+    color: 'hsl(var(--foreground))',
+  };
 
   return (
     <div className="space-y-6">
@@ -144,15 +155,15 @@ export default function Dashboard() {
                 <AreaChart data={cumData}>
                   <defs>
                     <linearGradient id="pnlGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="hsl(217, 91%, 60%)" stopOpacity={0.3} />
-                      <stop offset="100%" stopColor="hsl(217, 91%, 60%)" stopOpacity={0} />
+                      <stop offset="0%" stopColor="hsl(var(--chart-blue))" stopOpacity={0.3} />
+                      <stop offset="100%" stopColor="hsl(var(--chart-blue))" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 13%, 14%)" />
-                  <XAxis dataKey="date" stroke="hsl(215, 16%, 52%)" fontSize={11} />
-                  <YAxis stroke="hsl(215, 16%, 52%)" fontSize={11} tickFormatter={(v) => `$${v}`} />
-                  <Tooltip contentStyle={{ background: 'hsl(220, 18%, 8%)', border: '1px solid hsl(220, 13%, 14%)', borderRadius: 8 }} formatter={(v: number) => [`$${v.toFixed(2)}`, 'P&L']} />
-                  <Area type="monotone" dataKey="pnl" stroke="hsl(217, 91%, 60%)" strokeWidth={2} fill="url(#pnlGrad)" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                  <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={(v) => `$${v}`} />
+                  <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`$${v.toFixed(2)}`, 'P&L']} />
+                  <Area type="monotone" dataKey="pnl" stroke="hsl(var(--chart-blue))" strokeWidth={2} fill="url(#pnlGrad)" />
                 </AreaChart>
               </ResponsiveContainer>
             ) : <p className="text-muted-foreground text-sm text-center py-12">No closed trades yet</p>}
@@ -168,7 +179,7 @@ export default function Dashboard() {
                   <Pie data={pieData} dataKey="value" innerRadius={60} outerRadius={100} paddingAngle={4}>
                     {pieData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                   </Pie>
-                  <Tooltip contentStyle={{ background: 'hsl(220, 18%, 8%)', border: '1px solid hsl(220, 13%, 14%)', borderRadius: 8 }} />
+                  <Tooltip contentStyle={tooltipStyle} />
                 </PieChart>
               </ResponsiveContainer>
             ) : <p className="text-muted-foreground text-sm text-center py-12">No data</p>}
@@ -176,18 +187,40 @@ export default function Dashboard() {
         )}
       </div>
 
+      {has('trade-candles') && (
+        <div className="rounded-xl border border-border bg-card p-5">
+          <h3 className="text-sm font-semibold mb-4 text-muted-foreground uppercase tracking-wider">Daily Trade Candles</h3>
+          <p className="text-xs text-muted-foreground mb-3">Each candle shows the day's P&L range: bar = close, dots = high (green) & low (red)</p>
+          <TradeCandlestickChart trades={trades ?? []} />
+        </div>
+      )}
+
+      {has('hourly-pnl') && (
+        <div className="rounded-xl border border-border bg-card p-5">
+          <h3 className="text-sm font-semibold mb-4 text-muted-foreground uppercase tracking-wider">P&L by Hour</h3>
+          <HourlyPnlChart trades={trades ?? []} />
+        </div>
+      )}
+
+      {has('day-of-week') && (
+        <div className="rounded-xl border border-border bg-card p-5">
+          <h3 className="text-sm font-semibold mb-4 text-muted-foreground uppercase tracking-wider">P&L by Day of Week</h3>
+          <DayOfWeekChart trades={trades ?? []} />
+        </div>
+      )}
+
       {has('daily-bar') && (
         <div className="rounded-xl border border-border bg-card p-5">
           <h3 className="text-sm font-semibold mb-4 text-muted-foreground uppercase tracking-wider">Daily P&L</h3>
           {dailyData.length > 0 ? (
             <ResponsiveContainer width="100%" height={250}>
               <BarChart data={dailyData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 13%, 14%)" />
-                <XAxis dataKey="date" stroke="hsl(215, 16%, 52%)" fontSize={11} />
-                <YAxis stroke="hsl(215, 16%, 52%)" fontSize={11} tickFormatter={(v) => `$${v}`} />
-                <Tooltip contentStyle={{ background: 'hsl(220, 18%, 8%)', border: '1px solid hsl(220, 13%, 14%)', borderRadius: 8 }} formatter={(v: number) => [`$${v.toFixed(2)}`, 'P&L']} />
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={(v) => `$${v}`} />
+                <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`$${v.toFixed(2)}`, 'P&L']} />
                 <Bar dataKey="pnl" radius={[4, 4, 0, 0]}>
-                  {dailyData.map((entry, i) => <Cell key={i} fill={entry.pnl >= 0 ? 'hsl(142, 71%, 45%)' : 'hsl(0, 72%, 51%)'} />)}
+                  {dailyData.map((entry, i) => <Cell key={i} fill={entry.pnl >= 0 ? 'hsl(var(--chart-green))' : 'hsl(var(--chart-red))'} />)}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
@@ -200,11 +233,11 @@ export default function Dashboard() {
           <h3 className="text-sm font-semibold mb-4 text-muted-foreground uppercase tracking-wider">Equity Curve</h3>
           <ResponsiveContainer width="100%" height={250}>
             <LineChart data={cumData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 13%, 14%)" />
-              <XAxis dataKey="date" stroke="hsl(215, 16%, 52%)" fontSize={11} />
-              <YAxis stroke="hsl(215, 16%, 52%)" fontSize={11} tickFormatter={(v) => `$${v}`} />
-              <Tooltip contentStyle={{ background: 'hsl(220, 18%, 8%)', border: '1px solid hsl(220, 13%, 14%)', borderRadius: 8 }} formatter={(v: number) => [`$${v.toFixed(2)}`, 'Equity']} />
-              <Line type="monotone" dataKey="pnl" stroke="hsl(142, 71%, 45%)" strokeWidth={2} dot={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+              <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={(v) => `$${v}`} />
+              <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`$${v.toFixed(2)}`, 'Equity']} />
+              <Line type="monotone" dataKey="pnl" stroke="hsl(var(--chart-green))" strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -215,12 +248,12 @@ export default function Dashboard() {
           <h3 className="text-sm font-semibold mb-4 text-muted-foreground uppercase tracking-wider">P&L by Strategy</h3>
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={strategyData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 13%, 14%)" />
-              <XAxis dataKey="strategy" stroke="hsl(215, 16%, 52%)" fontSize={11} />
-              <YAxis stroke="hsl(215, 16%, 52%)" fontSize={11} tickFormatter={(v) => `$${v}`} />
-              <Tooltip contentStyle={{ background: 'hsl(220, 18%, 8%)', border: '1px solid hsl(220, 13%, 14%)', borderRadius: 8 }} formatter={(v: number) => [`$${v.toFixed(2)}`, 'P&L']} />
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <XAxis dataKey="strategy" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+              <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={(v) => `$${v}`} />
+              <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`$${v.toFixed(2)}`, 'P&L']} />
               <Bar dataKey="pnl" radius={[4, 4, 0, 0]}>
-                {strategyData.map((entry, i) => <Cell key={i} fill={entry.pnl >= 0 ? 'hsl(142, 71%, 45%)' : 'hsl(0, 72%, 51%)'} />)}
+                {strategyData.map((entry, i) => <Cell key={i} fill={entry.pnl >= 0 ? 'hsl(var(--chart-green))' : 'hsl(var(--chart-red))'} />)}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
@@ -232,12 +265,12 @@ export default function Dashboard() {
           <h3 className="text-sm font-semibold mb-4 text-muted-foreground uppercase tracking-wider">P&L by Symbol (Top 10)</h3>
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={symbolData} layout="vertical">
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 13%, 14%)" />
-              <XAxis type="number" stroke="hsl(215, 16%, 52%)" fontSize={11} tickFormatter={(v) => `$${v}`} />
-              <YAxis type="category" dataKey="symbol" stroke="hsl(215, 16%, 52%)" fontSize={11} width={60} />
-              <Tooltip contentStyle={{ background: 'hsl(220, 18%, 8%)', border: '1px solid hsl(220, 13%, 14%)', borderRadius: 8 }} formatter={(v: number) => [`$${v.toFixed(2)}`, 'P&L']} />
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={(v) => `$${v}`} />
+              <YAxis type="category" dataKey="symbol" stroke="hsl(var(--muted-foreground))" fontSize={11} width={60} />
+              <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`$${v.toFixed(2)}`, 'P&L']} />
               <Bar dataKey="pnl" radius={[0, 4, 4, 0]}>
-                {symbolData.map((entry, i) => <Cell key={i} fill={entry.pnl >= 0 ? 'hsl(142, 71%, 45%)' : 'hsl(0, 72%, 51%)'} />)}
+                {symbolData.map((entry, i) => <Cell key={i} fill={entry.pnl >= 0 ? 'hsl(var(--chart-green))' : 'hsl(var(--chart-red))'} />)}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
