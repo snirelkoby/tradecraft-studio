@@ -59,7 +59,7 @@ export default function Trades() {
       if (filterDateTo && isAfter(parseISO(t.entry_date), parseISO(filterDateTo + 'T23:59:59'))) return false;
       return true;
     });
-  }, [trades, filterSymbol, filterDirection, filterStatus, filterStrategy, filterAssetType, filterDateFrom, filterDateTo]);
+  }, [trades, filterSymbol, filterDirection, filterStatus, filterStrategy, filterAssetType, filterTag, filterDateFrom, filterDateTo]);
 
   const toggleSelect = (id: string) => {
     const next = new Set(selectedIds);
