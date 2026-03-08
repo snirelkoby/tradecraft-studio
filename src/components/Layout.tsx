@@ -12,6 +12,15 @@ export function Layout() {
   const { data: trades } = useTrades();
   const { selectedAccount, setSelectedAccount } = useSelectedAccount();
 
+  // Calculate total P&L from ALL closed trades
+  const allClosedPnl = (trades ?? [])
+    .filter(t => t.status === 'closed' && t.pnl !== null)
+    .reduce((sum, t) => sum + (t.pnl ?? 0), 0);
+
+  // Calculate total starting balance from all accounts
+  const totalStartingBalance = (accounts ?? []).reduce((sum, a) => sum + (a.starting_balance ?? 0), 0);
+
+  // Get balance for a specific account
   const getAccountBalance = (accountName: string) => {
     const account = accounts?.find(a => a.name === accountName);
     const startingBalance = account?.starting_balance ?? 0;
@@ -21,7 +30,8 @@ export function Layout() {
     return startingBalance + pnl;
   };
 
-  const totalBalance = (accounts ?? []).reduce((sum, a) => sum + getAccountBalance(a.name), 0);
+  // Total balance = starting balance + ALL trade P&L (including trades without matching accounts)
+  const totalBalance = totalStartingBalance + allClosedPnl;
 
   return (
     <SidebarProvider>
