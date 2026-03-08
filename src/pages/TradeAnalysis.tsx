@@ -29,31 +29,33 @@ type ViewId = typeof VIEWS[number]['id'];
 
 interface YahooResult { high: number; low: number; }
 
-// Renders wick lines on top of the bar chart using the chart's actual Y scale
+// Renders wick lines using Customized component which provides access to chart internals
 const WickRenderer = (props: any) => {
-  const { formattedGraphicalItems, data } = props;
-  if (!formattedGraphicalItems || !data) return null;
+  // Customized passes: formattedGraphicalItems, xAxisMap, yAxisMap, offset, etc.
+  const { formattedGraphicalItems, yAxisMap } = props;
+  if (!formattedGraphicalItems || !yAxisMap) return null;
 
-  // Find the bar series to get pixel positions
-  const barItem = formattedGraphicalItems.find((item: any) => item?.props?.dataKey === 'close');
-  if (!barItem?.props?.data) return null;
+  // Find the Bar component for 'close'
+  const barSeries = formattedGraphicalItems.find(
+    (item: any) => item?.item?.props?.dataKey === 'close'
+  );
+  if (!barSeries?.props?.points) return null;
 
-  const barData = barItem.props.data;
-  // Get the yAxis to map values to pixels
-  const yAxisId = barItem.props.yAxisId || 0;
-  const yAxisMap = props.yAxisMap;
-  const yAxis = yAxisMap?.[yAxisId];
+  const points = barSeries.props.points;
+  const yAxis = yAxisMap[0] || Object.values(yAxisMap)[0];
   if (!yAxis?.scale) return null;
 
   const scale = yAxis.scale;
+  const data = barSeries.props.data || props.data;
 
   return (
     <g>
-      {barData.map((bar: any, i: number) => {
-        const d = data[i];
+      {points.map((point: any, i: number) => {
+        // Access the original data for this point
+        const d = data?.[i]?.payload || data?.[i];
         if (!d || d.wickHigh == null || d.wickLow == null) return null;
 
-        const centerX = bar.x + bar.width / 2;
+        const centerX = point.x;
         const yHigh = scale(d.wickHigh);
         const yLow = scale(d.wickLow);
         const color = d.isProfit ? 'hsl(var(--chart-green))' : 'hsl(var(--chart-purple, 262 83% 58%))';
