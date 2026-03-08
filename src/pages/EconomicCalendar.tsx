@@ -53,9 +53,6 @@ const KEY_EVENTS_TEMPLATE = [
   { title: 'Existing Home Sales', currency: 'USD', impact: 'medium' },
   { title: 'New Home Sales', currency: 'USD', impact: 'medium' },
   { title: 'Durable Goods Orders', currency: 'USD', impact: 'medium' },
-  { title: 'ECB Interest Rate Decision', currency: 'EUR', impact: 'high' },
-  { title: 'BOJ Interest Rate Decision', currency: 'JPY', impact: 'high' },
-  { title: 'BOE Interest Rate Decision', currency: 'GBP', impact: 'high' },
 ];
 
 export default function EconomicCalendar() {
