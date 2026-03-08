@@ -38,7 +38,7 @@ const ALL_WIDGETS = [
 ] as const;
 
 type WidgetId = typeof ALL_WIDGETS[number]['id'];
-const DEFAULT_WIDGETS: WidgetId[] = ['kpi-main', 'kpi-secondary', 'cum-pnl', 'win-loss-pie', 'daily-bar', 'hourly-pnl', 'trade-candles'];
+const DEFAULT_WIDGETS: WidgetId[] = ['quick-stats', 'kpi-main', 'kpi-secondary', 'cum-pnl', 'win-loss-pie', 'daily-bar', 'hourly-pnl', 'trade-candles'];
 const STORAGE_KEY = 'dashboard-widgets';
 
 export default function Dashboard() {
