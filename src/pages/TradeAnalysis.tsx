@@ -310,10 +310,8 @@ export default function TradeAnalysis() {
           />
           <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" strokeOpacity={0.5} />
           <Tooltip content={<CandleTooltip />} />
-          {/* Wicks rendered via Customized to access the Y scale directly */}
-          <Customized component={WickRenderer} />
-          {/* Candle bodies */}
-          <Bar dataKey="close" barSize={mode === 'per-trade' ? 8 : 20} radius={[2, 2, 2, 2]} name="P&L">
+          {/* Candle bodies with wicks via custom shape */}
+          <Bar dataKey="close" barSize={mode === 'per-trade' ? 8 : 20} name="P&L" shape={<CandleBarShape />}>
             {candleData.map((entry, i) => (
               <Cell key={i} fill={entry.isProfit ? 'hsl(var(--chart-green))' : 'hsl(var(--chart-purple, 262 83% 58%))'} />
             ))}
