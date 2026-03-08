@@ -11,6 +11,7 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Trades from "./pages/Trades";
 import TradeAnalysis from "./pages/TradeAnalysis";
+import AiInsights from "./pages/AiInsights";
 import CalendarView from "./pages/CalendarView";
 import Blueprints from "./pages/Blueprints";
 import Ledger from "./pages/Ledger";
