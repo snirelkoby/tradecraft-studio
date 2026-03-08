@@ -41,6 +41,7 @@ import DrawdownAnalyzer from "./pages/DrawdownAnalyzer";
 import RuleViolations from "./pages/RuleViolations";
 import SessionPlanner from "./pages/SessionPlanner";
 import AbStrategyTester from "./pages/AbStrategyTester";
+import TimeInTrade from "./pages/TimeInTrade";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
