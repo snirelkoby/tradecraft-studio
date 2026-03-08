@@ -4,7 +4,7 @@ import { useSelectedAccount } from '@/hooks/useSelectedAccount';
 import { format, parseISO, isAfter, isBefore } from 'date-fns';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
 import {
   ResponsiveContainer, ComposedChart, Bar, XAxis, YAxis,
   Tooltip, CartesianGrid, Cell, AreaChart, Area, BarChart, Line,
