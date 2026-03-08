@@ -1,12 +1,13 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useTrades } from '@/hooks/useTrades';
 import { format, parseISO, isAfter, isBefore } from 'date-fns';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis,
-  Tooltip, CartesianGrid, Cell, AreaChart, Area, LineChart, BarChart
+  Tooltip, CartesianGrid, Cell, AreaChart, Area, LineChart, BarChart, ReferenceLine
 } from 'recharts';
+import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
 
 type Trade = Database['public']['Tables']['trades']['Row'];
@@ -23,12 +24,70 @@ const VIEWS = [
 
 type ViewId = typeof VIEWS[number]['id'];
 
+interface YahooResult {
+  high: number;
+  low: number;
+}
+
+// Custom candlestick shape with wicks
+const CandleBody = (props: any) => {
+  const { x, y, width, height, payload } = props;
+  if (!payload) return null;
+
+  const { isProfit, wickHigh, wickLow, close } = payload;
+  const color = isProfit ? 'hsl(var(--chart-green))' : 'hsl(var(--chart-purple, 262 83% 58%))';
+
+  // The bar renders from 0 to close. We need wick positions relative to the chart.
+  // y = top of bar, y + height = bottom of bar
+  // For positive close: y is at close value, y+height is at 0
+  // For negative close: y is at 0, y+height is at close value
+
+  if (wickHigh == null && wickLow == null) {
+    // No yahoo data, render plain bar
+    return (
+      <rect
+        x={x}
+        y={y}
+        width={width}
+        height={Math.max(Math.abs(height), 2)}
+        fill={color}
+        rx={2}
+      />
+    );
+  }
+
+  // Calculate wick pixel positions using the scale
+  // We need access to the Y scale. Since recharts doesn't pass it easily,
+  // we calculate wick positions proportionally
+  const barTop = y;
+  const barBottom = y + Math.abs(height);
+  const barValue = close; // The value at the top of the bar (for positive) or bottom (for negative)
+
+  const centerX = x + width / 2;
+  const wickWidth = 1.5;
+
+  return (
+    <g>
+      <rect
+        x={x}
+        y={barTop}
+        width={width}
+        height={Math.max(Math.abs(height), 2)}
+        fill={color}
+        rx={2}
+      />
+    </g>
+  );
+};
+
 export default function TradeAnalysis() {
   const { data: trades, isLoading } = useTrades();
   const [activeView, setActiveView] = useState<ViewId>('trade-candles');
   const [mode, setMode] = useState<'per-trade' | 'daily'>('per-trade');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [yahooData, setYahooData] = useState<Record<string, YahooResult | null>>({});
+  const [loadingYahoo, setLoadingYahoo] = useState(false);
 
   const closed = useMemo(() => {
     return (trades ?? [])
@@ -41,11 +100,74 @@ export default function TradeAnalysis() {
       .sort((a, b) => new Date(a.entry_date).getTime() - new Date(b.entry_date).getTime());
   }, [trades, dateFrom, dateTo]);
 
-  // Per-trade candle data: each trade is a candle
-  // open=0, close=pnl, high=max(0, pnl), low=min(0, pnl)
+  // Fetch Yahoo Finance data for per-trade mode
+  useEffect(() => {
+    if (mode !== 'per-trade' || closed.length === 0) return;
+
+    const fetchYahoo = async () => {
+      // Build requests for trades that have exit dates
+      const symbols = closed
+        .filter(t => t.exit_date)
+        .map(t => ({
+          key: t.id,
+          symbol: t.symbol,
+          startDate: t.entry_date,
+          endDate: t.exit_date!,
+        }));
+
+      if (symbols.length === 0) return;
+
+      // Check which ones we already have
+      const needed = symbols.filter(s => !(s.key in yahooData));
+      if (needed.length === 0) return;
+
+      setLoadingYahoo(true);
+      try {
+        // Batch in chunks of 20
+        for (let i = 0; i < needed.length; i += 20) {
+          const batch = needed.slice(i, i + 20);
+          const { data, error } = await supabase.functions.invoke('yahoo-finance', {
+            body: { symbols: batch },
+          });
+          if (data?.results) {
+            setYahooData(prev => ({ ...prev, ...data.results }));
+          }
+        }
+      } catch (e) {
+        console.error('Yahoo fetch error:', e);
+      } finally {
+        setLoadingYahoo(false);
+      }
+    };
+
+    fetchYahoo();
+  }, [closed, mode]);
+
+  // Calculate P&L at a given price for a trade
+  const calcPnlAtPrice = (trade: Trade, price: number): number => {
+    const diff = trade.direction === 'long'
+      ? price - trade.entry_price
+      : trade.entry_price - price;
+    return diff * trade.quantity - (trade.fees ?? 0);
+  };
+
+  // Per-trade candle data with real wicks from Yahoo
   const perTradeCandles = useMemo(() => {
     return closed.map((t, i) => {
       const pnl = t.pnl ?? 0;
+      const yahoo = yahooData[t.id];
+
+      let wickHigh: number | null = null;
+      let wickLow: number | null = null;
+
+      if (yahoo) {
+        // Calculate what the P&L would have been at the yahoo high/low
+        const pnlAtHigh = calcPnlAtPrice(t, yahoo.high);
+        const pnlAtLow = calcPnlAtPrice(t, yahoo.low);
+        wickHigh = Math.max(pnlAtHigh, pnlAtLow, pnl, 0);
+        wickLow = Math.min(pnlAtHigh, pnlAtLow, pnl, 0);
+      }
+
       return {
         label: `#${i + 1}`,
         time: format(parseISO(t.entry_date), 'HH:mm'),
@@ -54,14 +176,16 @@ export default function TradeAnalysis() {
         symbol: t.symbol,
         open: 0,
         close: pnl,
-        high: Math.max(0, pnl),
-        low: Math.min(0, pnl),
+        high: wickHigh,
+        low: wickLow,
+        wickHigh,
+        wickLow,
         isProfit: pnl >= 0,
         pnl,
         direction: t.direction,
       };
     });
-  }, [closed]);
+  }, [closed, yahooData]);
 
   // Daily candle data
   const dailyCandles = useMemo(() => {
@@ -88,6 +212,8 @@ export default function TradeAnalysis() {
         close: running,
         high,
         low,
+        wickHigh: high,
+        wickLow: low,
         isProfit: running >= 0,
         pnl: running,
         trades: dayTrades.length,
@@ -162,6 +288,220 @@ export default function TradeAnalysis() {
     color: 'hsl(var(--foreground))',
   };
 
+  // Custom SVG candlestick renderer using customized bar shape
+  const renderCandlestickChart = () => {
+    if (candleData.length === 0) {
+      return <p className="text-muted-foreground text-center py-20">No closed trades in selected range</p>;
+    }
+
+    // Calculate Y domain to include wicks
+    const allValues = candleData.flatMap(d => [
+      d.close, d.open,
+      d.wickHigh ?? d.close,
+      d.wickLow ?? d.close,
+    ]);
+    const yMin = Math.min(...allValues) * 1.1;
+    const yMax = Math.max(...allValues) * 1.1;
+
+    return (
+      <ResponsiveContainer width="100%" height={450}>
+        <ComposedChart data={candleData}>
+          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+          <XAxis
+            dataKey="label"
+            stroke="hsl(var(--muted-foreground))"
+            fontSize={10}
+            interval={Math.max(0, Math.floor(candleData.length / 20))}
+          />
+          <YAxis
+            stroke="hsl(var(--muted-foreground))"
+            fontSize={11}
+            tickFormatter={v => `$${v}`}
+            domain={[yMin, yMax]}
+          />
+          <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" strokeOpacity={0.5} />
+          <Tooltip
+            contentStyle={tooltipStyle}
+            content={({ active, payload, label }) => {
+              if (!active || !payload?.length) return null;
+              const d = payload[0]?.payload;
+              if (!d) return null;
+              return (
+                <div className="rounded-lg border border-border bg-popover p-3 text-xs space-y-1">
+                  <p className="font-semibold text-foreground">{d.fullDate ?? label}</p>
+                  {d.symbol && <p className="text-muted-foreground">{d.symbol} · {d.direction}</p>}
+                  <p>
+                    P&L: <span className={d.isProfit ? 'text-chart-green' : 'text-chart-red'}>${d.pnl?.toFixed(2)}</span>
+                  </p>
+                  {d.wickHigh != null && (
+                    <p className="text-chart-green">High: ${d.wickHigh.toFixed(2)}</p>
+                  )}
+                  {d.wickLow != null && (
+                    <p className="text-chart-red">Low: ${d.wickLow.toFixed(2)}</p>
+                  )}
+                  {d.trades && <p className="text-muted-foreground">{d.trades} trades</p>}
+                </div>
+              );
+            }}
+          />
+          {/* Wick lines (high to low) */}
+          <Bar dataKey="wickHigh" fill="transparent" barSize={2} name="_wickHigh" legendType="none"
+            shape={(props: any) => {
+              const { x, y, width, payload } = props;
+              if (!payload || payload.wickHigh == null || payload.wickLow == null) return null;
+              const color = payload.isProfit ? 'hsl(var(--chart-green))' : 'hsl(var(--chart-purple, 262 83% 58%))';
+              const centerX = x + width / 2;
+
+              // We need to map wickLow to pixel position. The bar for wickHigh goes from 0 to wickHigh.
+              // We can use the ratio. The full Y range is yMax - yMin.
+              // Actually let's use a different approach - use two separate scatter-like elements
+              return null;
+            }}
+          />
+          {/* Candle bodies */}
+          <Bar dataKey="close" barSize={mode === 'per-trade' ? 8 : 20} radius={[2, 2, 2, 2]} name="P&L">
+            {candleData.map((entry, i) => (
+              <Cell key={i} fill={entry.isProfit ? 'hsl(var(--chart-green))' : 'hsl(var(--chart-purple, 262 83% 58%))'} />
+            ))}
+          </Bar>
+          {/* Wick dots for high and low */}
+          <Line type="monotone" dataKey="wickHigh" stroke="none" dot={(props: any) => {
+            const { cx, cy, payload } = props;
+            if (!payload || payload.wickHigh == null) return <circle r={0} />;
+            return <circle cx={cx} cy={cy} r={0} />;
+          }} name="High" legendType="none" />
+          <Line type="monotone" dataKey="wickLow" stroke="none" dot={(props: any) => {
+            const { cx, cy, payload } = props;
+            if (!payload || payload.wickLow == null) return <circle r={0} />;
+            return <circle cx={cx} cy={cy} r={0} />;
+          }} name="Low" legendType="none" />
+        </ComposedChart>
+      </ResponsiveContainer>
+    );
+  };
+
+  // Actually, let me use a proper SVG-based approach for candlesticks
+  const renderCandlestickSVG = () => {
+    if (candleData.length === 0) {
+      return <p className="text-muted-foreground text-center py-20">No closed trades in selected range</p>;
+    }
+
+    const allValues = candleData.flatMap(d => [
+      d.close, 0,
+      d.wickHigh ?? d.close,
+      d.wickLow ?? d.close,
+    ]);
+    const dataMin = Math.min(...allValues);
+    const dataMax = Math.max(...allValues);
+    const padding = Math.max(Math.abs(dataMax - dataMin) * 0.1, 1);
+    const yMin = dataMin - padding;
+    const yMax = dataMax + padding;
+
+    return (
+      <ResponsiveContainer width="100%" height={450}>
+        <ComposedChart data={candleData} margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+          <XAxis
+            dataKey="label"
+            stroke="hsl(var(--muted-foreground))"
+            fontSize={10}
+            interval={Math.max(0, Math.floor(candleData.length / 20))}
+          />
+          <YAxis
+            stroke="hsl(var(--muted-foreground))"
+            fontSize={11}
+            tickFormatter={v => `$${v}`}
+            domain={[yMin, yMax]}
+          />
+          <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" strokeOpacity={0.5} />
+          <Tooltip
+            content={({ active, payload, label }) => {
+              if (!active || !payload?.length) return null;
+              const d = payload[0]?.payload;
+              if (!d) return null;
+              return (
+                <div className="rounded-lg border border-border bg-popover p-3 text-xs space-y-1 shadow-lg">
+                  <p className="font-semibold text-foreground">{d.fullDate ?? label}</p>
+                  {d.symbol && <p className="text-muted-foreground">{d.symbol} · {d.direction}</p>}
+                  <p>
+                    P&L: <span className={d.isProfit ? 'text-chart-green' : 'text-chart-red'}>${d.pnl?.toFixed(2)}</span>
+                  </p>
+                  {d.wickHigh != null && <p className="text-chart-green">Max P&L: ${d.wickHigh.toFixed(2)}</p>}
+                  {d.wickLow != null && <p className="text-chart-red">Min P&L: ${d.wickLow.toFixed(2)}</p>}
+                  {d.trades && <p className="text-muted-foreground">{d.trades} trades</p>}
+                </div>
+              );
+            }}
+          />
+          {/* Candle body (bar from 0 to close) */}
+          <Bar dataKey="close" barSize={mode === 'per-trade' ? 8 : 20} radius={[2, 2, 2, 2]} name="P&L"
+            shape={(props: any) => {
+              const { x, y, width, height, payload, background } = props;
+              if (!payload) return null;
+              const color = payload.isProfit ? 'hsl(var(--chart-green))' : 'hsl(var(--chart-purple, 262 83% 58%))';
+              const centerX = x + width / 2;
+              const barTop = height >= 0 ? y : y + height;
+              const barBottom = height >= 0 ? y + height : y;
+              const absHeight = Math.abs(height);
+
+              // Calculate wick positions using proportional mapping
+              // The bar goes from value 0 to value close
+              // We need to map wickHigh and wickLow to pixel positions
+              let wickTopY = barTop;
+              let wickBottomY = barTop + absHeight;
+
+              if (payload.wickHigh != null && payload.wickLow != null && payload.close !== 0) {
+                // pixels per dollar: absHeight / |close|
+                const pxPerDollar = absHeight / Math.abs(payload.close);
+
+                if (payload.close >= 0) {
+                  // bar: top = close value (y), bottom = 0 value (y + height)
+                  // wickHigh is above close → goes above bar
+                  wickTopY = y - (payload.wickHigh - payload.close) * pxPerDollar;
+                  // wickLow is below 0 → goes below bar
+                  wickBottomY = y + absHeight + Math.abs(payload.wickLow) * pxPerDollar;
+                } else {
+                  // bar: top = 0 value (y), bottom = close value (y + absHeight)
+                  // wickHigh is above 0 → goes above bar
+                  wickTopY = y - payload.wickHigh * pxPerDollar;
+                  // wickLow is below close → goes below bar
+                  wickBottomY = y + absHeight + (Math.abs(payload.wickLow) - Math.abs(payload.close)) * pxPerDollar;
+                }
+              } else if (payload.wickHigh == null && payload.wickLow == null) {
+                // No wick data, just show the bar
+                return (
+                  <rect x={x} y={barTop} width={width} height={Math.max(absHeight, 2)} fill={color} rx={2} />
+                );
+              }
+
+              return (
+                <g>
+                  {/* Wick line from high to low */}
+                  <line
+                    x1={centerX} y1={wickTopY}
+                    x2={centerX} y2={wickBottomY}
+                    stroke={color} strokeWidth={1.5}
+                  />
+                  {/* Candle body */}
+                  <rect
+                    x={x} y={barTop}
+                    width={width}
+                    height={Math.max(absHeight, 2)}
+                    fill={color} rx={2}
+                  />
+                </g>
+              );
+            }}
+          >
+            {candleData.map((entry, i) => (
+              <Cell key={i} fill={entry.isProfit ? 'hsl(var(--chart-green))' : 'hsl(var(--chart-purple, 262 83% 58%))'} />
+            ))}
+          </Bar>
+        </ComposedChart>
+      </ResponsiveContainer>
+    );
+  };
+
   const renderChart = () => {
     if (closed.length === 0) {
       return <p className="text-muted-foreground text-center py-20">No closed trades in selected range</p>;
@@ -169,38 +509,7 @@ export default function TradeAnalysis() {
 
     switch (activeView) {
       case 'trade-candles':
-        return (
-          <ResponsiveContainer width="100%" height={450}>
-            <ComposedChart data={candleData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis
-                dataKey="label"
-                stroke="hsl(var(--muted-foreground))"
-                fontSize={10}
-                interval={Math.max(0, Math.floor(candleData.length / 20))}
-              />
-              <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={v => `$${v}`} />
-              <Tooltip
-                contentStyle={tooltipStyle}
-                formatter={(v: number, name: string) => [`$${v.toFixed(2)}`, name]}
-                labelFormatter={(label) => {
-                  const item = candleData.find(d => d.label === label);
-                  return item?.fullDate ?? label;
-                }}
-              />
-              {/* Candle bodies: bar from 0 to close */}
-              <Bar dataKey="close" barSize={mode === 'per-trade' ? 8 : 20} radius={[2, 2, 2, 2]} name="P&L">
-                {candleData.map((entry, i) => (
-                  <Cell key={i} fill={entry.isProfit ? 'hsl(var(--chart-green))' : 'hsl(var(--chart-purple, 262 83% 58%))'} />
-                ))}
-              </Bar>
-              {/* High wick */}
-              <Line type="monotone" dataKey="high" stroke="none" dot={{ r: 2, fill: 'hsl(var(--chart-green))' }} name="High" />
-              {/* Low wick */}
-              <Line type="monotone" dataKey="low" stroke="none" dot={{ r: 2, fill: 'hsl(var(--chart-purple, 262 83% 58%))' }} name="Low" />
-            </ComposedChart>
-          </ResponsiveContainer>
-        );
+        return renderCandlestickSVG();
 
       case 'equity-curve':
         return (
@@ -367,6 +676,9 @@ export default function TradeAnalysis() {
                   Daily
                 </button>
               </div>
+            )}
+            {loadingYahoo && mode === 'per-trade' && activeView === 'trade-candles' && (
+              <span className="text-xs text-muted-foreground animate-pulse">Loading market data...</span>
             )}
             <div className="flex items-center gap-2 ml-auto">
               <Input
