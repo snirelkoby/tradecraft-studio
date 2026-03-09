@@ -234,7 +234,104 @@ function parseRithmic(text: string, userId: string) {
   return trades;
 }
 
-function parseRithmicSimple(text: string, userId: string) {
+function parseOrderHistorySimple(
+  lines: string[],
+  delimiter: string,
+  headers: string[],
+  cols: { symbolIdx: number; qtyIdx: number; buySellIdx: number; statusIdx: number; priceIdx: number; timeIdx: number; accountIdx: number },
+  userId: string,
+) {
+  interface FilledOrder {
+    symbol: string; side: 'B' | 'S'; qty: number; price: number; time: string; account: string;
+  }
+
+  const filled: FilledOrder[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    const vals = line.split(delimiter).map(v => v.trim().replace(/^"|"$/g, ''));
+    const status = vals[cols.statusIdx]?.toLowerCase() || '';
+    if (status !== 'filled' && status !== '') continue;
+    const price = parseFloat(vals[cols.priceIdx]);
+    if (isNaN(price) || price === 0) continue;
+
+    filled.push({
+      symbol: vals[cols.symbolIdx]?.toUpperCase() || '',
+      side: vals[cols.buySellIdx]?.toUpperCase().startsWith('S') ? 'S' : 'B',
+      qty: Math.abs(parseInt(vals[cols.qtyIdx]) || 1),
+      price,
+      time: vals[cols.timeIdx] || '',
+      account: cols.accountIdx !== -1 ? vals[cols.accountIdx] || '' : '',
+    });
+  }
+
+  if (filled.length === 0) throw new Error('No filled orders found');
+  filled.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+
+  const getDay = (t: string) => new Date(t).toISOString().slice(0, 10);
+  const byKey = new Map<string, FilledOrder[]>();
+  filled.forEach(o => {
+    const key = `${o.account}|${o.symbol}|${getDay(o.time)}`;
+    if (!byKey.has(key)) byKey.set(key, []);
+    byKey.get(key)!.push(o);
+  });
+
+  const trades: any[] = [];
+  byKey.forEach((orders, key) => {
+    const symbol = key.split('|')[1];
+    const buys = orders.filter(o => o.side === 'B');
+    const sells = orders.filter(o => o.side === 'S');
+    let bi = 0, si = 0, bRem = 0, sRem = 0;
+
+    while (bi < buys.length && si < sells.length) {
+      const buy = buys[bi], sell = sells[si];
+      if (bRem === 0) bRem = buy.qty;
+      if (sRem === 0) sRem = sell.qty;
+      const matchQty = Math.min(bRem, sRem);
+      const buyFirst = new Date(buy.time).getTime() <= new Date(sell.time).getTime();
+      const direction = buyFirst ? 'long' : 'short';
+      const entryPrice = buyFirst ? buy.price : sell.price;
+      const exitPrice = buyFirst ? sell.price : buy.price;
+
+      const cleanSymbol = symbol.replace(/[A-Z]\d$/, '');
+      const futConfig = FUTURES_CONFIG.find(f => cleanSymbol.startsWith(f.symbol));
+      const pointValue = futConfig ? futConfig.tickValue / futConfig.tickSize : 20;
+      const pnl = direction === 'long'
+        ? (exitPrice - entryPrice) * matchQty * pointValue
+        : (entryPrice - exitPrice) * matchQty * pointValue;
+
+      trades.push({
+        user_id: userId,
+        symbol: cleanSymbol,
+        direction,
+        entry_date: new Date(buyFirst ? buy.time : sell.time).toISOString(),
+        exit_date: new Date(buyFirst ? sell.time : buy.time).toISOString(),
+        entry_price: entryPrice,
+        exit_price: exitPrice,
+        quantity: matchQty,
+        pnl,
+        pnl_percent: null,
+        fees: 0,
+        stop_loss: null,
+        take_profit: null,
+        strategy: null,
+        notes: buy.account ? `Rithmic import | Account: ${buy.account}` : null,
+        status: 'closed',
+        asset_type: 'Futures',
+      });
+
+      bRem -= matchQty;
+      sRem -= matchQty;
+      if (bRem === 0) bi++;
+      if (sRem === 0) si++;
+    }
+  });
+
+  if (trades.length === 0) throw new Error('Could not match any buy/sell pairs');
+  return trades;
+}
+
+
   const lines = text.trim().split('\n');
   if (lines.length < 2) throw new Error('CSV must have a header and at least one row');
 
