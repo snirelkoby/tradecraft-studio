@@ -336,7 +336,7 @@ function parseRithmicSimple(text: string, userId: string) {
   if (lines.length < 2) throw new Error('CSV must have a header and at least one row');
 
   const delimiter = lines[0].includes(';') ? ';' : ',';
-  const headers = lines[0].split(delimiter).map(h => h.trim().toLowerCase());
+  const headers = lines[0].split(delimiter).map(h => h.trim().replace(/^"|"$/g, '').toLowerCase());
 
   const find = (...names: string[]) => headers.findIndex(h => names.some(n => h.includes(n)));
 
