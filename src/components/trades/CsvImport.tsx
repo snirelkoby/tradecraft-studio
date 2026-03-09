@@ -11,7 +11,7 @@ import { Upload } from 'lucide-react';
 const CSV_SOURCES = [
   { id: 'deepcharts', label: 'DeepCharts', description: 'Semicolon-separated CSV from DeepCharts' },
   { id: 'rithmic', label: 'Rithmic (Original)', description: 'Order History CSV export from R|Trader Pro (Completed Orders section)' },
-  { id: 'rithmic-simple', label: 'Rithmic (Simple)', description: 'CSV פשוט — עמודות: Symbol, Qty, Open Time, Close Time, Open Price, Close Price, PnL (אופציונלי)' },
+  { id: 'rithmic-simple', label: 'Rithmic (Simple)', description: 'CSV גמיש — תומך גם ב-Order History וגם בפורמט פשוט עם עמודות Symbol, Qty, Open/Close Time, Price, PnL' },
 ] as const;
 
 type CsvSource = typeof CSV_SOURCES[number]['id'];
@@ -234,6 +234,103 @@ function parseRithmic(text: string, userId: string) {
   return trades;
 }
 
+function parseOrderHistorySimple(
+  lines: string[],
+  delimiter: string,
+  headers: string[],
+  cols: { symbolIdx: number; qtyIdx: number; buySellIdx: number; statusIdx: number; priceIdx: number; timeIdx: number; accountIdx: number },
+  userId: string,
+) {
+  interface FilledOrder {
+    symbol: string; side: 'B' | 'S'; qty: number; price: number; time: string; account: string;
+  }
+
+  const filled: FilledOrder[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    const vals = line.split(delimiter).map(v => v.trim().replace(/^"|"$/g, ''));
+    const status = vals[cols.statusIdx]?.toLowerCase() || '';
+    if (status !== 'filled' && status !== '') continue;
+    const price = parseFloat(vals[cols.priceIdx]);
+    if (isNaN(price) || price === 0) continue;
+
+    filled.push({
+      symbol: vals[cols.symbolIdx]?.toUpperCase() || '',
+      side: vals[cols.buySellIdx]?.toUpperCase().startsWith('S') ? 'S' : 'B',
+      qty: Math.abs(parseInt(vals[cols.qtyIdx]) || 1),
+      price,
+      time: vals[cols.timeIdx] || '',
+      account: cols.accountIdx !== -1 ? vals[cols.accountIdx] || '' : '',
+    });
+  }
+
+  if (filled.length === 0) throw new Error('No filled orders found');
+  filled.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+
+  const getDay = (t: string) => new Date(t).toISOString().slice(0, 10);
+  const byKey = new Map<string, FilledOrder[]>();
+  filled.forEach(o => {
+    const key = `${o.account}|${o.symbol}|${getDay(o.time)}`;
+    if (!byKey.has(key)) byKey.set(key, []);
+    byKey.get(key)!.push(o);
+  });
+
+  const trades: any[] = [];
+  byKey.forEach((orders, key) => {
+    const symbol = key.split('|')[1];
+    const buys = orders.filter(o => o.side === 'B');
+    const sells = orders.filter(o => o.side === 'S');
+    let bi = 0, si = 0, bRem = 0, sRem = 0;
+
+    while (bi < buys.length && si < sells.length) {
+      const buy = buys[bi], sell = sells[si];
+      if (bRem === 0) bRem = buy.qty;
+      if (sRem === 0) sRem = sell.qty;
+      const matchQty = Math.min(bRem, sRem);
+      const buyFirst = new Date(buy.time).getTime() <= new Date(sell.time).getTime();
+      const direction = buyFirst ? 'long' : 'short';
+      const entryPrice = buyFirst ? buy.price : sell.price;
+      const exitPrice = buyFirst ? sell.price : buy.price;
+
+      const cleanSymbol = symbol.replace(/[A-Z]\d$/, '');
+      const futConfig = FUTURES_CONFIG.find(f => cleanSymbol.startsWith(f.symbol));
+      const pointValue = futConfig ? futConfig.tickValue / futConfig.tickSize : 20;
+      const pnl = direction === 'long'
+        ? (exitPrice - entryPrice) * matchQty * pointValue
+        : (entryPrice - exitPrice) * matchQty * pointValue;
+
+      trades.push({
+        user_id: userId,
+        symbol: cleanSymbol,
+        direction,
+        entry_date: new Date(buyFirst ? buy.time : sell.time).toISOString(),
+        exit_date: new Date(buyFirst ? sell.time : buy.time).toISOString(),
+        entry_price: entryPrice,
+        exit_price: exitPrice,
+        quantity: matchQty,
+        pnl,
+        pnl_percent: null,
+        fees: 0,
+        stop_loss: null,
+        take_profit: null,
+        strategy: null,
+        notes: buy.account ? `Rithmic import | Account: ${buy.account}` : null,
+        status: 'closed',
+        asset_type: 'Futures',
+      });
+
+      bRem -= matchQty;
+      sRem -= matchQty;
+      if (bRem === 0) bi++;
+      if (sRem === 0) si++;
+    }
+  });
+
+  if (trades.length === 0) throw new Error('Could not match any buy/sell pairs');
+  return trades;
+}
+
 function parseRithmicSimple(text: string, userId: string) {
   const lines = text.trim().split('\n');
   if (lines.length < 2) throw new Error('CSV must have a header and at least one row');
@@ -245,20 +342,37 @@ function parseRithmicSimple(text: string, userId: string) {
 
   const symbolIdx = find('symbol', 'ticker', 'instrument', 'contract');
   const dirIdx = find('direction', 'side', 'buy/sell', 'type', 'long/short');
-  const qtyIdx = find('qty', 'quantity', 'contracts', 'lots', 'size', 'amount');
-  const openTimeIdx = find('open time', 'open_time', 'opentime', 'entry date', 'entry_date', 'entrydate', 'entry time', 'entry_time', 'open date', 'open_date', 'start time', 'start_time', 'start date');
-  const closeTimeIdx = find('close time', 'close_time', 'closetime', 'exit date', 'exit_date', 'exitdate', 'exit time', 'exit_time', 'close date', 'close_date', 'end time', 'end_time', 'end date');
-  const openPriceIdx = find('open price', 'open_price', 'openprice', 'entry price', 'entry_price', 'entryprice', 'avg entry', 'fill price');
+  const qtyIdx = find('qty', 'quantity', 'contracts', 'lots', 'size', 'amount', 'qty to fill');
+  const openTimeIdx = find('open time', 'open_time', 'opentime', 'entry date', 'entry_date', 'entrydate', 'entry time', 'entry_time', 'open date', 'open_date', 'start time', 'start_time', 'start date', 'create time');
+  const closeTimeIdx = find('close time', 'close_time', 'closetime', 'exit date', 'exit_date', 'exitdate', 'exit time', 'exit_time', 'close date', 'close_date', 'end time', 'end_time', 'end date', 'update time', 'fill time');
+  const openPriceIdx = find('open price', 'open_price', 'openprice', 'entry price', 'entry_price', 'entryprice', 'avg entry', 'fill price', 'avg fill price', 'limit price');
   const closePriceIdx = find('close price', 'close_price', 'closeprice', 'exit price', 'exit_price', 'exitprice', 'avg exit');
   const pnlIdx = find('pnl', 'profit', 'p&l', 'profitloss', 'net', 'realized', 'gain');
   const feesIdx = find('fees', 'commission', 'comm');
   const strategyIdx = find('strategy', 'setup');
   const notesIdx = find('notes', 'comment');
+  const statusIdx = find('status', 'order status');
+  const buySellIdx = find('buy/sell');
+  const accountIdx = find('account');
 
   if (symbolIdx === -1) throw new Error('Missing "Symbol" column');
   if (qtyIdx === -1) throw new Error('Missing "Qty" column');
-  if (openTimeIdx === -1) throw new Error('Missing open/entry time column (e.g. "Open Time" or "Entry Date")');
-  if (closeTimeIdx === -1) throw new Error('Missing close/exit time column (e.g. "Close Time" or "Exit Date")');
+  if (openTimeIdx === -1 && closeTimeIdx === -1) throw new Error('Missing time column (e.g. "Open Time", "Create Time", "Update Time")');
+
+  // If this looks like a Rithmic Order History (has Buy/Sell + Status columns but no separate open/close times),
+  // redirect to the Rithmic parser logic within simple format
+  const isOrderHistory = buySellIdx !== -1 && statusIdx !== -1 && openTimeIdx !== -1 && closePriceIdx === -1;
+
+  if (isOrderHistory) {
+    return parseOrderHistorySimple(lines, delimiter, headers, {
+      symbolIdx, qtyIdx, buySellIdx: buySellIdx!, statusIdx: statusIdx!,
+      priceIdx: openPriceIdx, timeIdx: closeTimeIdx !== -1 ? closeTimeIdx : openTimeIdx,
+      accountIdx,
+    }, userId);
+  }
+
+  if (openTimeIdx === -1) throw new Error('Missing open/entry time column');
+  if (closeTimeIdx === -1) throw new Error('Missing close/exit time column');
 
   return lines.slice(1).filter(l => l.trim()).map(line => {
     const vals = line.split(delimiter).map(v => v.trim());
