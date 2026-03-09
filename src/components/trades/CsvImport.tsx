@@ -245,20 +245,37 @@ function parseRithmicSimple(text: string, userId: string) {
 
   const symbolIdx = find('symbol', 'ticker', 'instrument', 'contract');
   const dirIdx = find('direction', 'side', 'buy/sell', 'type', 'long/short');
-  const qtyIdx = find('qty', 'quantity', 'contracts', 'lots', 'size', 'amount');
-  const openTimeIdx = find('open time', 'open_time', 'opentime', 'entry date', 'entry_date', 'entrydate', 'entry time', 'entry_time', 'open date', 'open_date', 'start time', 'start_time', 'start date');
-  const closeTimeIdx = find('close time', 'close_time', 'closetime', 'exit date', 'exit_date', 'exitdate', 'exit time', 'exit_time', 'close date', 'close_date', 'end time', 'end_time', 'end date');
-  const openPriceIdx = find('open price', 'open_price', 'openprice', 'entry price', 'entry_price', 'entryprice', 'avg entry', 'fill price');
+  const qtyIdx = find('qty', 'quantity', 'contracts', 'lots', 'size', 'amount', 'qty to fill');
+  const openTimeIdx = find('open time', 'open_time', 'opentime', 'entry date', 'entry_date', 'entrydate', 'entry time', 'entry_time', 'open date', 'open_date', 'start time', 'start_time', 'start date', 'create time');
+  const closeTimeIdx = find('close time', 'close_time', 'closetime', 'exit date', 'exit_date', 'exitdate', 'exit time', 'exit_time', 'close date', 'close_date', 'end time', 'end_time', 'end date', 'update time', 'fill time');
+  const openPriceIdx = find('open price', 'open_price', 'openprice', 'entry price', 'entry_price', 'entryprice', 'avg entry', 'fill price', 'avg fill price', 'limit price');
   const closePriceIdx = find('close price', 'close_price', 'closeprice', 'exit price', 'exit_price', 'exitprice', 'avg exit');
   const pnlIdx = find('pnl', 'profit', 'p&l', 'profitloss', 'net', 'realized', 'gain');
   const feesIdx = find('fees', 'commission', 'comm');
   const strategyIdx = find('strategy', 'setup');
   const notesIdx = find('notes', 'comment');
+  const statusIdx = find('status', 'order status');
+  const buySellIdx = find('buy/sell');
+  const accountIdx = find('account');
 
   if (symbolIdx === -1) throw new Error('Missing "Symbol" column');
   if (qtyIdx === -1) throw new Error('Missing "Qty" column');
-  if (openTimeIdx === -1) throw new Error('Missing open/entry time column (e.g. "Open Time" or "Entry Date")');
-  if (closeTimeIdx === -1) throw new Error('Missing close/exit time column (e.g. "Close Time" or "Exit Date")');
+  if (openTimeIdx === -1 && closeTimeIdx === -1) throw new Error('Missing time column (e.g. "Open Time", "Create Time", "Update Time")');
+
+  // If this looks like a Rithmic Order History (has Buy/Sell + Status columns but no separate open/close times),
+  // redirect to the Rithmic parser logic within simple format
+  const isOrderHistory = buySellIdx !== -1 && statusIdx !== -1 && openTimeIdx !== -1 && closePriceIdx === -1;
+
+  if (isOrderHistory) {
+    return parseOrderHistorySimple(lines, delimiter, headers, {
+      symbolIdx, qtyIdx, buySellIdx: buySellIdx!, statusIdx: statusIdx!,
+      priceIdx: openPriceIdx, timeIdx: closeTimeIdx !== -1 ? closeTimeIdx : openTimeIdx,
+      accountIdx,
+    }, userId);
+  }
+
+  if (openTimeIdx === -1) throw new Error('Missing open/entry time column');
+  if (closeTimeIdx === -1) throw new Error('Missing close/exit time column');
 
   return lines.slice(1).filter(l => l.trim()).map(line => {
     const vals = line.split(delimiter).map(v => v.trim());
