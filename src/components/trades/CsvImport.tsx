@@ -332,6 +332,7 @@ function parseOrderHistorySimple(
 }
 
 function parseRithmicSimple(text: string, userId: string) {
+  const lines = text.trim().split('\n');
   if (lines.length < 2) throw new Error('CSV must have a header and at least one row');
 
   const delimiter = lines[0].includes(';') ? ';' : ',';
