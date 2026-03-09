@@ -179,6 +179,7 @@ export function TradeCandlestickChart({ trades }: { trades: Trade[] }) {
           </Bar>
         </ComposedChart>
       </ResponsiveContainer>
+      </div>
     </div>
   );
 }
