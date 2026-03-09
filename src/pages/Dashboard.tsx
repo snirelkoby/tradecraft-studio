@@ -202,6 +202,7 @@ export default function Dashboard() {
               </div>
             </div>
             {cumData.length > 0 ? (
+              <div key={cumMode} className="animate-fade-in">
               <ResponsiveContainer width="100%" height={300}>
                 <AreaChart data={cumData}>
                   <defs>
