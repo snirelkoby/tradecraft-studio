@@ -140,6 +140,7 @@ export function TradeCandlestickChart({ trades }: { trades: Trade[] }) {
           Weekly
         </Button>
       </div>
+      <div key={viewMode} className="animate-fade-in">
       <ResponsiveContainer width="100%" height={300}>
         <ComposedChart data={candles}>
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -178,6 +179,7 @@ export function TradeCandlestickChart({ trades }: { trades: Trade[] }) {
           </Bar>
         </ComposedChart>
       </ResponsiveContainer>
+      </div>
     </div>
   );
 }
