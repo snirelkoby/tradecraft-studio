@@ -196,7 +196,7 @@ export default function Trades() {
           <TabsTrigger value="tag-performance" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Tag Performance</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="trades" className="animate-fade-in">
+        <TabsContent value="trades">
       <div className="rounded-xl border border-border bg-card overflow-hidden">
         {isLoading ? (
           <p className="text-center py-12 text-muted-foreground">Loading...</p>
@@ -275,7 +275,7 @@ export default function Trades() {
       </div>
         </TabsContent>
 
-        <TabsContent value="tag-performance" className="animate-fade-in">
+        <TabsContent value="tag-performance">
           <div className="rounded-xl border border-border bg-card p-5">
             <h3 className="text-sm font-semibold mb-4 text-muted-foreground uppercase tracking-wider">Performance by Tag</h3>
             <TagPerformance trades={trades ?? []} />

@@ -202,6 +202,7 @@ export default function Dashboard() {
               </div>
             </div>
             {cumData.length > 0 ? (
+              <div key={cumMode} className="animate-fade-in">
               <ResponsiveContainer width="100%" height={300}>
                 <AreaChart data={cumData}>
                   <defs>
@@ -217,6 +218,7 @@ export default function Dashboard() {
                   <Area type="monotone" dataKey="pnl" stroke="hsl(var(--chart-blue))" strokeWidth={2} fill="url(#pnlGrad)" />
                 </AreaChart>
               </ResponsiveContainer>
+              </div>
             ) : <p className="text-muted-foreground text-sm text-center py-12">No closed trades yet</p>}
           </div>
         )}
