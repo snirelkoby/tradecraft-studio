@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAddTrade, calculateFuturesPnl, useTrades } from '@/hooks/useTrades';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -8,21 +10,26 @@ import { toast } from 'sonner';
 import { ASSET_TYPES, FUTURES_CONFIG, FOREX_PAIRS, CRYPTO_SYMBOLS } from '@/lib/assetConfig';
 import { TagInput } from './TagInput';
 
-const STRATEGIES = ['AAA', 'AA', 'A', 'B', 'C', 'D'];
-
 interface TradeFormProps {
   onSuccess: () => void;
+  accountName?: string;
 }
 
-export function TradeForm({ onSuccess }: TradeFormProps) {
+export function TradeForm({ onSuccess, accountName }: TradeFormProps) {
   const addTrade = useAddTrade();
+  const { user } = useAuth();
   const { data: existingTrades } = useTrades();
   const [tags, setTags] = useState<string[]>([]);
+  const [blueprints, setBlueprints] = useState<{ id: string; tier: string; name: string }[]>([]);
+
+  const now = new Date();
+  const nowLocal = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+
   const [form, setForm] = useState({
     asset_type: 'Futures' as string,
     symbol: '',
     direction: 'long' as 'long' | 'short',
-    entry_date: new Date().toISOString().split('T')[0],
+    entry_date: nowLocal,
     exit_date: '',
     entry_price: '',
     exit_price: '',
@@ -34,8 +41,15 @@ export function TradeForm({ onSuccess }: TradeFormProps) {
     notes: '',
   });
 
-  const allTags = [...new Set((existingTrades ?? []).flatMap(t => t.tags ?? []))];
+  // Fetch blueprints for dropdown
+  useEffect(() => {
+    if (!user) return;
+    supabase.from('blueprints').select('id, tier, name').then(({ data }) => {
+      if (data) setBlueprints(data.map(b => ({ id: b.id, tier: b.tier, name: b.name ?? '' })));
+    });
+  }, [user]);
 
+  const allTags = [...new Set((existingTrades ?? []).flatMap(t => t.tags ?? []))];
   const isFutures = form.asset_type === 'Futures';
 
   const getSymbolOptions = () => {
@@ -49,7 +63,6 @@ export function TradeForm({ onSuccess }: TradeFormProps) {
 
   const symbolOptions = getSymbolOptions();
   const isManualSymbol = form.asset_type === 'Stocks';
-
   const selectedFuture = isFutures ? FUTURES_CONFIG.find(f => f.symbol === form.symbol) : null;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -96,6 +109,7 @@ export function TradeForm({ onSuccess }: TradeFormProps) {
         notes: form.notes || null,
         tags: tags.length > 0 ? tags : null,
         status,
+        account_name: accountName || null,
       } as any);
       toast.success(`Trade ${form.symbol.toUpperCase()} recorded`);
       onSuccess();
@@ -150,35 +164,28 @@ export function TradeForm({ onSuccess }: TradeFormProps) {
           </Select>
         </div>
 
-        {/* Show futures info */}
+        {/* Futures info */}
         {selectedFuture && (
           <div className="col-span-2 rounded-lg bg-primary/10 border border-primary/20 p-3 text-xs">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Contract:</span>
-              <span className="font-bold">{selectedFuture.name}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Tick Size:</span>
-              <span className="font-mono">{selectedFuture.tickSize}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Tick Value:</span>
-              <span className="font-mono">${selectedFuture.tickValue}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Exchange:</span>
-              <span>{selectedFuture.exchange}</span>
-            </div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Contract:</span><span className="font-bold">{selectedFuture.name}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Tick Size:</span><span className="font-mono">{selectedFuture.tickSize}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Tick Value:</span><span className="font-mono">${selectedFuture.tickValue}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Exchange:</span><span>{selectedFuture.exchange}</span></div>
           </div>
         )}
 
         <div>
-          <label className="text-xs text-muted-foreground uppercase mb-1 block">Entry Date</label>
-          <Input type="date" value={form.entry_date} onChange={e => setForm({ ...form, entry_date: e.target.value })} required className="bg-secondary" />
+          <label className="text-xs text-muted-foreground uppercase mb-1 block">Entry Date & Time</label>
+          <Input type="datetime-local" value={form.entry_date} onChange={e => setForm({ ...form, entry_date: e.target.value })} required className="bg-secondary" />
         </div>
         <div>
-          <label className="text-xs text-muted-foreground uppercase mb-1 block">Exit Date</label>
-          <Input type="date" value={form.exit_date} onChange={e => setForm({ ...form, exit_date: e.target.value })} className="bg-secondary" />
+          <label className="text-xs text-muted-foreground uppercase mb-1 block">Exit Date & Time</label>
+          <div className="flex gap-1">
+            <Input type="datetime-local" value={form.exit_date} onChange={e => setForm({ ...form, exit_date: e.target.value })} className="bg-secondary flex-1" />
+            <Button type="button" variant="outline" size="sm" className="text-[10px] shrink-0" onClick={() => setForm({ ...form, exit_date: nowLocal })}>
+              Now
+            </Button>
+          </div>
         </div>
         <div>
           <label className="text-xs text-muted-foreground uppercase mb-1 block">Entry Price</label>
@@ -217,11 +224,16 @@ export function TradeForm({ onSuccess }: TradeFormProps) {
           <Input type="number" step="any" value={form.fees} onChange={e => setForm({ ...form, fees: e.target.value })} className="bg-secondary" />
         </div>
         <div className="col-span-2">
-          <label className="text-xs text-muted-foreground uppercase mb-1 block">Strategy</label>
+          <label className="text-xs text-muted-foreground uppercase mb-1 block">Blueprint / Strategy</label>
           <Select value={form.strategy} onValueChange={v => setForm({ ...form, strategy: v })}>
-            <SelectTrigger className="bg-secondary"><SelectValue placeholder="Select strategy" /></SelectTrigger>
+            <SelectTrigger className="bg-secondary"><SelectValue placeholder="Select blueprint..." /></SelectTrigger>
             <SelectContent>
-              {STRATEGIES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+              {blueprints.map(bp => (
+                <SelectItem key={bp.id} value={bp.name || bp.tier}>
+                  <span className="font-mono text-xs text-muted-foreground mr-2">{bp.tier}</span>
+                  {bp.name || bp.tier}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
