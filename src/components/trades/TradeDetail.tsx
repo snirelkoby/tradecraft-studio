@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TradingViewWidget } from './TradingViewWidget';
 import { ScreenshotUpload } from './ScreenshotUpload';
 import { TradeExecutions } from './TradeExecutions';
-import { TrendingUp, TrendingDown, Edit3, Save, X } from 'lucide-react';
+import { TrendingUp, TrendingDown, Edit3, Save, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { useUpdateTrade } from '@/hooks/useTrades';
 import { toast } from 'sonner';
@@ -20,9 +20,11 @@ interface TradeDetailProps {
   trade: Trade | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  trades?: Trade[];
+  onTradeChange?: (trade: Trade) => void;
 }
 
-export function TradeDetail({ trade, open, onOpenChange }: TradeDetailProps) {
+export function TradeDetail({ trade, open, onOpenChange, trades, onTradeChange }: TradeDetailProps) {
   const updateTrade = useUpdateTrade();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<Partial<Trade>>({});
@@ -49,9 +51,15 @@ export function TradeDetail({ trade, open, onOpenChange }: TradeDetailProps) {
 
   if (!trade) return null;
 
+  // Navigation
+  const currentIndex = trades?.findIndex(t => t.id === trade.id) ?? -1;
+  const hasPrev = currentIndex > 0;
+  const hasNext = trades ? currentIndex < trades.length - 1 : false;
+  const goPrev = () => { if (hasPrev && trades && onTradeChange) onTradeChange(trades[currentIndex - 1]); };
+  const goNext = () => { if (hasNext && trades && onTradeChange) onTradeChange(trades[currentIndex + 1]); };
+
   const handleSave = async () => {
     try {
-      // Recalculate PnL
       let pnl = trade.pnl;
       let pnlPercent = trade.pnl_percent;
       const entryPrice = Number(form.entry_price);
@@ -92,7 +100,17 @@ export function TradeDetail({ trade, open, onOpenChange }: TradeDetailProps) {
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-5 pb-3 border-b border-border">
           <div className="flex items-center gap-3">
+            {/* Navigation arrows */}
+            <div className="flex items-center gap-1 mr-2">
+              <Button size="icon" variant="ghost" className="h-8 w-8" disabled={!hasPrev} onClick={goPrev}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button size="icon" variant="ghost" className="h-8 w-8" disabled={!hasNext} onClick={goNext}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
             <span className="text-xl font-bold">{trade.symbol}</span>
+            <span className="text-xs text-muted-foreground">{format(parseISO(trade.entry_date), 'MMM dd, yyyy')}</span>
             <Badge variant={trade.direction === 'long' ? 'default' : 'secondary'}>
               {trade.direction === 'long' ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
               {trade.direction.toUpperCase()}
@@ -112,10 +130,9 @@ export function TradeDetail({ trade, open, onOpenChange }: TradeDetailProps) {
           </div>
         </div>
 
-        <div className="flex flex-col lg:flex-row">
+        <div className="flex flex-col lg:flex-row animate-fade-in" key={trade.id}>
           {/* Left Panel - Stats */}
           <div className="lg:w-72 shrink-0 border-r border-border p-5 space-y-4">
-            {/* Net P&L */}
             <div>
               <p className="text-[10px] text-muted-foreground uppercase">Net P&L</p>
               <p className={`text-2xl font-bold font-mono ${pnlColor}`}>
@@ -140,51 +157,42 @@ export function TradeDetail({ trade, open, onOpenChange }: TradeDetailProps) {
                 )
               } />
               <StatRow label="Contracts" value={
-                editing ? (
-                  <Input type="number" className="h-7 w-20 text-xs bg-secondary" value={form.quantity} onChange={e => setForm({ ...form, quantity: Number(e.target.value) })} />
-                ) : trade.quantity.toString()
+                editing ? <Input type="number" className="h-7 w-20 text-xs bg-secondary" value={form.quantity} onChange={e => setForm({ ...form, quantity: Number(e.target.value) })} />
+                : trade.quantity.toString()
               } />
               <StatRow label="Entry Price" value={
-                editing ? (
-                  <Input type="number" step="any" className="h-7 w-24 text-xs bg-secondary" value={form.entry_price} onChange={e => setForm({ ...form, entry_price: Number(e.target.value) })} />
-                ) : `$${trade.entry_price}`
+                editing ? <Input type="number" step="any" className="h-7 w-24 text-xs bg-secondary" value={form.entry_price} onChange={e => setForm({ ...form, entry_price: Number(e.target.value) })} />
+                : `$${trade.entry_price}`
               } />
               <StatRow label="Exit Price" value={
-                editing ? (
-                  <Input type="number" step="any" className="h-7 w-24 text-xs bg-secondary" value={form.exit_price ?? ''} onChange={e => setForm({ ...form, exit_price: e.target.value ? Number(e.target.value) : null })} />
-                ) : (trade.exit_price ? `$${trade.exit_price}` : '—')
+                editing ? <Input type="number" step="any" className="h-7 w-24 text-xs bg-secondary" value={form.exit_price ?? ''} onChange={e => setForm({ ...form, exit_price: e.target.value ? Number(e.target.value) : null })} />
+                : (trade.exit_price ? `$${trade.exit_price}` : '—')
               } />
               <StatRow label="Stop Loss" value={
-                editing ? (
-                  <Input type="number" step="any" className="h-7 w-24 text-xs bg-secondary" value={form.stop_loss ?? ''} onChange={e => setForm({ ...form, stop_loss: e.target.value ? Number(e.target.value) : null })} />
-                ) : (trade.stop_loss ? `$${trade.stop_loss}` : '—')
+                editing ? <Input type="number" step="any" className="h-7 w-24 text-xs bg-secondary" value={form.stop_loss ?? ''} onChange={e => setForm({ ...form, stop_loss: e.target.value ? Number(e.target.value) : null })} />
+                : (trade.stop_loss ? `$${trade.stop_loss}` : '—')
               } />
               <StatRow label="Take Profit" value={
-                editing ? (
-                  <Input type="number" step="any" className="h-7 w-24 text-xs bg-secondary" value={form.take_profit ?? ''} onChange={e => setForm({ ...form, take_profit: e.target.value ? Number(e.target.value) : null })} />
-                ) : (trade.take_profit ? `$${trade.take_profit}` : '—')
+                editing ? <Input type="number" step="any" className="h-7 w-24 text-xs bg-secondary" value={form.take_profit ?? ''} onChange={e => setForm({ ...form, take_profit: e.target.value ? Number(e.target.value) : null })} />
+                : (trade.take_profit ? `$${trade.take_profit}` : '—')
               } />
               <StatRow label="Fees" value={
-                editing ? (
-                  <Input type="number" step="any" className="h-7 w-24 text-xs bg-secondary" value={form.fees ?? 0} onChange={e => setForm({ ...form, fees: Number(e.target.value) })} />
-                ) : `$${trade.fees ?? 0}`
+                editing ? <Input type="number" step="any" className="h-7 w-24 text-xs bg-secondary" value={form.fees ?? 0} onChange={e => setForm({ ...form, fees: Number(e.target.value) })} />
+                : `$${trade.fees ?? 0}`
               } />
               <StatRow label="Strategy" value={trade.strategy || '—'} />
 
               <div className="border-t border-border pt-2 mt-2">
                 <StatRow label="Entry" value={
-                  editing ? (
-                    <Input type="datetime-local" className="h-7 w-44 text-xs bg-secondary" value={form.entry_date?.slice(0, 16)} onChange={e => setForm({ ...form, entry_date: new Date(e.target.value).toISOString() })} />
-                  ) : format(parseISO(trade.entry_date), 'MMM dd, yyyy HH:mm')
+                  editing ? <Input type="datetime-local" className="h-7 w-44 text-xs bg-secondary" value={form.entry_date?.slice(0, 16)} onChange={e => setForm({ ...form, entry_date: new Date(e.target.value).toISOString() })} />
+                  : format(parseISO(trade.entry_date), 'MMM dd, yyyy HH:mm')
                 } />
                 <StatRow label="Exit" value={
-                  editing ? (
-                    <Input type="datetime-local" className="h-7 w-44 text-xs bg-secondary" value={form.exit_date?.slice(0, 16) ?? ''} onChange={e => setForm({ ...form, exit_date: e.target.value ? new Date(e.target.value).toISOString() : null })} />
-                  ) : (trade.exit_date ? format(parseISO(trade.exit_date), 'MMM dd, yyyy HH:mm') : '—')
+                  editing ? <Input type="datetime-local" className="h-7 w-44 text-xs bg-secondary" value={form.exit_date?.slice(0, 16) ?? ''} onChange={e => setForm({ ...form, exit_date: e.target.value ? new Date(e.target.value).toISOString() : null })} />
+                  : (trade.exit_date ? format(parseISO(trade.exit_date), 'MMM dd, yyyy HH:mm') : '—')
                 } />
               </div>
 
-              {/* Tags */}
               {(trade.tags ?? []).length > 0 && (
                 <div className="pt-2">
                   <p className="text-[10px] text-muted-foreground uppercase mb-1">Tags</p>
@@ -200,7 +208,6 @@ export function TradeDetail({ trade, open, onOpenChange }: TradeDetailProps) {
 
           {/* Right Panel - Chart + Tabs */}
           <div className="flex-1 p-5 space-y-4 min-w-0">
-            {/* TradingView Chart */}
             <TradingViewWidget
               symbol={trade.symbol}
               assetType={trade.asset_type ?? undefined}
@@ -211,7 +218,6 @@ export function TradeDetail({ trade, open, onOpenChange }: TradeDetailProps) {
               direction={trade.direction}
             />
 
-            {/* Bottom Tabs */}
             <Tabs defaultValue="notes">
               <TabsList className="bg-secondary border border-border">
                 <TabsTrigger value="notes" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs">Notes</TabsTrigger>
@@ -221,19 +227,10 @@ export function TradeDetail({ trade, open, onOpenChange }: TradeDetailProps) {
 
               <TabsContent value="notes">
                 {editing ? (
-                  <Textarea
-                    value={form.notes ?? ''}
-                    onChange={e => setForm({ ...form, notes: e.target.value })}
-                    className="bg-secondary"
-                    rows={4}
-                    placeholder="Trade notes..."
-                  />
+                  <Textarea value={form.notes ?? ''} onChange={e => setForm({ ...form, notes: e.target.value })} className="bg-secondary" rows={4} placeholder="Trade notes..." />
                 ) : (
-                  trade.notes ? (
-                    <p className="text-sm bg-secondary rounded-lg p-3">{trade.notes}</p>
-                  ) : (
-                    <p className="text-sm text-muted-foreground py-4 text-center">No notes</p>
-                  )
+                  trade.notes ? <p className="text-sm bg-secondary rounded-lg p-3">{trade.notes}</p>
+                  : <p className="text-sm text-muted-foreground py-4 text-center">No notes</p>
                 )}
               </TabsContent>
 
