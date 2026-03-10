@@ -283,7 +283,7 @@ export default function Trades() {
         </TabsContent>
       </Tabs>
 
-      <TradeDetail trade={selectedTrade} open={detailOpen} onOpenChange={setDetailOpen} />
+      <TradeDetail trade={selectedTrade} open={detailOpen} onOpenChange={setDetailOpen} trades={filtered} onTradeChange={setSelectedTrade} />
     </div>
   );
 }

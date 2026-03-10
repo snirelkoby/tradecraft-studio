@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { TrendingUp, TrendingDown, Target, Clock, Zap, BarChart3 } from 'lucide-react';
+import { Zap, BarChart3, Target, TrendingUp, TrendingDown } from 'lucide-react';
 
 interface QuickStatsWidgetProps {
   trades: any[] | undefined;
@@ -22,11 +21,9 @@ export function QuickStatsWidget({ trades }: QuickStatsWidgetProps) {
 
     const todayPnl = todayTrades.reduce((s, t) => s + (t.pnl ?? 0), 0);
     const weekPnl = weekTrades.reduce((s, t) => s + (t.pnl ?? 0), 0);
-    const totalPnl = closed.reduce((s, t) => s + (t.pnl ?? 0), 0);
     const wins = closed.filter(t => (t.pnl ?? 0) > 0).length;
     const winRate = (wins / closed.length * 100);
 
-    // Current streak
     let streak = 0;
     const sorted = [...closed].sort((a, b) => new Date(b.entry_date).getTime() - new Date(a.entry_date).getTime());
     if (sorted.length > 0) {
@@ -38,47 +35,43 @@ export function QuickStatsWidget({ trades }: QuickStatsWidgetProps) {
       if (!firstWin) streak = -streak;
     }
 
-    // Best symbol this week
     const symMap: Record<string, number> = {};
     weekTrades.forEach(t => { symMap[t.symbol] = (symMap[t.symbol] ?? 0) + (t.pnl ?? 0); });
     const bestSym = Object.entries(symMap).sort((a, b) => b[1] - a[1])[0];
 
-    return { todayPnl, todayCount: todayTrades.length, weekPnl, weekCount: weekTrades.length, totalPnl, winRate, totalCount: closed.length, streak, bestSym };
+    return { todayPnl, todayCount: todayTrades.length, weekPnl, weekCount: weekTrades.length, winRate, totalCount: closed.length, streak, bestSym };
   }, [trades]);
 
   if (!stats) return null;
 
   const items = [
-    { icon: Zap, label: 'Today', value: `$${stats.todayPnl.toFixed(0)}`, sub: `${stats.todayCount} trades`, positive: stats.todayPnl >= 0 },
-    { icon: BarChart3, label: 'This Week', value: `$${stats.weekPnl.toFixed(0)}`, sub: `${stats.weekCount} trades`, positive: stats.weekPnl >= 0 },
-    { icon: Target, label: 'Win Rate', value: `${stats.winRate.toFixed(1)}%`, sub: `${stats.totalCount} total`, positive: stats.winRate >= 50 },
-    { icon: stats.streak >= 0 ? TrendingUp : TrendingDown, label: 'Streak', value: `${Math.abs(stats.streak)} ${stats.streak >= 0 ? 'W' : 'L'}`, sub: 'current', positive: stats.streak >= 0 },
+    { icon: Zap, label: 'TODAY', value: `$${stats.todayPnl.toFixed(0)}`, sub: `trades ${stats.todayCount}`, positive: stats.todayPnl >= 0 },
+    { icon: BarChart3, label: 'THIS WEEK', value: `$${stats.weekPnl.toFixed(0)}`, sub: `trades ${stats.weekCount}`, positive: stats.weekPnl >= 0 },
+    { icon: Target, label: 'WIN RATE', value: `${stats.winRate.toFixed(1)}%`, sub: `total ${stats.totalCount}`, positive: stats.winRate >= 50 },
+    { icon: stats.streak >= 0 ? TrendingUp : TrendingDown, label: 'STREAK', value: `${stats.streak >= 0 ? 'W' : 'L'}  ${Math.abs(stats.streak)}`, sub: 'current', positive: stats.streak >= 0 },
   ];
 
   return (
-    <Card className="bg-card border-border">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium flex items-center gap-2">
-          <Zap className="h-4 w-4 text-primary" /> Quick Stats
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {items.map(item => (
-            <div key={item.label} className="text-center space-y-1 p-2 rounded-lg bg-muted/30">
-              <item.icon className={`h-4 w-4 mx-auto ${item.positive ? 'text-[hsl(var(--chart-green))]' : 'text-[hsl(var(--chart-red))]'}`} />
-              <p className={`text-lg font-mono font-bold ${item.positive ? 'text-[hsl(var(--chart-green))]' : 'text-[hsl(var(--chart-red))]'}`}>{item.value}</p>
-              <p className="text-[10px] text-muted-foreground uppercase">{item.label}</p>
-              <p className="text-[10px] text-muted-foreground">{item.sub}</p>
-            </div>
-          ))}
-        </div>
-        {stats.bestSym && (
-          <p className="text-xs text-muted-foreground mt-2 text-center">
-            🏆 Best symbol this week: <span className="font-mono font-medium text-foreground">{stats.bestSym[0]}</span> ({stats.bestSym[1] >= 0 ? '+' : ''}{stats.bestSym[1].toFixed(0)}$)
-          </p>
-        )}
-      </CardContent>
-    </Card>
+    <div className="rounded-xl border border-border bg-card p-5">
+      <div className="flex items-center justify-end gap-2 mb-3">
+        <span className="text-sm font-semibold text-muted-foreground">Quick Stats</span>
+        <Zap className="h-4 w-4 text-primary" />
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {items.map(item => (
+          <div key={item.label} className="rounded-xl border border-border bg-background p-4 text-center space-y-1.5">
+            <item.icon className={`h-4 w-4 mx-auto ${item.positive ? 'text-[hsl(var(--chart-green))]' : 'text-[hsl(var(--chart-red))]'}`} />
+            <p className={`text-xl font-mono font-bold ${item.positive ? 'text-[hsl(var(--chart-green))]' : 'text-[hsl(var(--chart-red))]'}`}>{item.value}</p>
+            <p className="text-[10px] text-muted-foreground font-medium tracking-wider">{item.label}</p>
+            <p className="text-[10px] text-muted-foreground">{item.sub}</p>
+          </div>
+        ))}
+      </div>
+      {stats.bestSym && (
+        <p className="text-xs text-muted-foreground mt-3 text-center">
+          Best symbol this week: <span className="font-mono font-bold text-foreground">{stats.bestSym[0]}</span> ({stats.bestSym[1] >= 0 ? '+' : ''}{stats.bestSym[1].toFixed(0)}$) 🏆
+        </p>
+      )}
+    </div>
   );
 }
