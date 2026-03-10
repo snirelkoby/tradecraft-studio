@@ -138,7 +138,7 @@ export default function Trades() {
               <DialogHeader>
                 <DialogTitle>Record New Trade</DialogTitle>
               </DialogHeader>
-              <TradeForm onSuccess={() => setFormOpen(false)} />
+              <TradeForm onSuccess={() => setFormOpen(false)} accountName={selectedAccount !== 'all' ? selectedAccount : undefined} />
             </DialogContent>
           </Dialog>
         </div>

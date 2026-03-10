@@ -635,6 +635,50 @@ export type Database = {
         }
         Relationships: []
       }
+      trade_executions: {
+        Row: {
+          created_at: string
+          executed_at: string
+          execution_type: string
+          id: string
+          notes: string | null
+          price: number
+          quantity: number
+          trade_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          executed_at?: string
+          execution_type?: string
+          id?: string
+          notes?: string | null
+          price: number
+          quantity?: number
+          trade_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          executed_at?: string
+          execution_type?: string
+          id?: string
+          notes?: string | null
+          price?: number
+          quantity?: number
+          trade_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trade_executions_trade_id_fkey"
+            columns: ["trade_id"]
+            isOneToOne: false
+            referencedRelation: "trades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       trade_mistakes: {
         Row: {
           category: string
