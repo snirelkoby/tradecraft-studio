@@ -83,7 +83,7 @@ export default function Dashboard() {
   let cumPnl = 0;
   const cumDataPerTrade = closed.map((t, i) => {
     cumPnl += t.pnl ?? 0;
-    return { label: `#${i + 1}`, date: format(parseISO(t.entry_date), 'MMM dd'), pnl: cumPnl };
+    return { date: format(parseISO(t.entry_date), 'MMM dd'), pnl: cumPnl, pnlPositive: cumPnl >= 0 ? cumPnl : 0, pnlNegative: cumPnl < 0 ? cumPnl : 0 };
   });
 
   // Per-day cumulative
