@@ -3,7 +3,7 @@ import { useTrades } from '@/hooks/useTrades';
 import { useSelectedAccount } from '@/hooks/useSelectedAccount';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, AreaChart, Area } from 'recharts';
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, AreaChart, Area, BarChart, Bar, Cell } from 'recharts';
 import { Play, RotateCcw } from 'lucide-react';
 
 export default function MonteCarloPage() {
@@ -35,7 +35,7 @@ export default function MonteCarloPage() {
     setResults(sims);
   };
 
-  // Compute percentiles
+  // Compute percentiles for cone chart
   const chartData = useMemo(() => {
     if (!results) return [];
     const len = tradeCount + 1;
@@ -53,18 +53,68 @@ export default function MonteCarloPage() {
     });
   }, [results, tradeCount]);
 
+  // Distribution histogram of final outcomes
+  const distributionData = useMemo(() => {
+    if (!results) return [];
+    const finals = results.map(sim => sim[sim.length - 1]);
+    const min = Math.min(...finals);
+    const max = Math.max(...finals);
+    const range = max - min || 1;
+    const buckets = 30;
+    const bucketSize = range / buckets;
+    const hist = Array.from({ length: buckets }, (_, i) => ({
+      range: `$${(min + i * bucketSize).toFixed(0)}`,
+      rangeMin: min + i * bucketSize,
+      rangeMax: min + (i + 1) * bucketSize,
+      count: 0,
+    }));
+    finals.forEach(v => {
+      const idx = Math.min(Math.floor((v - min) / bucketSize), buckets - 1);
+      hist[idx].count++;
+    });
+    return hist;
+  }, [results]);
+
   const finalStats = useMemo(() => {
     if (!results) return null;
     const finals = results.map(sim => sim[sim.length - 1]).sort((a, b) => a - b);
     const profitable = finals.filter(v => v > 0).length;
+    const breakeven = finals.filter(v => v === 0).length;
+
+    // Max drawdown stats
+    const drawdowns = results.map(sim => {
+      let peak = 0, maxDD = 0;
+      for (const v of sim) {
+        if (v > peak) peak = v;
+        const dd = peak - v;
+        if (dd > maxDD) maxDD = dd;
+      }
+      return maxDD;
+    }).sort((a, b) => a - b);
+
+    // Min profit thresholds
+    const minProfit1000 = finals.filter(v => v >= 1000).length / finals.length * 100;
+    const minProfit5000 = finals.filter(v => v >= 5000).length / finals.length * 100;
+    const minProfit10000 = finals.filter(v => v >= 10000).length / finals.length * 100;
+
     return {
       median: finals[Math.floor(finals.length * 0.5)],
       p5: finals[Math.floor(finals.length * 0.05)],
+      p10: finals[Math.floor(finals.length * 0.10)],
+      p25: finals[Math.floor(finals.length * 0.25)],
+      p75: finals[Math.floor(finals.length * 0.75)],
+      p90: finals[Math.floor(finals.length * 0.90)],
       p95: finals[Math.floor(finals.length * 0.95)],
       worst: finals[0],
       best: finals[finals.length - 1],
       profitProb: (profitable / finals.length * 100),
       mean: finals.reduce((s, v) => s + v, 0) / finals.length,
+      avgDrawdown: drawdowns.reduce((s, v) => s + v, 0) / drawdowns.length,
+      maxDrawdown: drawdowns[drawdowns.length - 1],
+      medianDrawdown: drawdowns[Math.floor(drawdowns.length * 0.5)],
+      minProfit1000,
+      minProfit5000,
+      minProfit10000,
     };
   }, [results]);
 
@@ -106,24 +156,56 @@ export default function MonteCarloPage() {
       )}
 
       {finalStats && (
-        <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
-          {[
-            { label: 'Profit Probability', value: `${finalStats.profitProb.toFixed(1)}%`, color: finalStats.profitProb >= 50 ? 'text-chart-green' : 'text-chart-red' },
-            { label: 'Mean Outcome', value: `$${finalStats.mean.toFixed(0)}`, color: finalStats.mean >= 0 ? 'text-chart-green' : 'text-chart-red' },
-            { label: 'Median', value: `$${finalStats.median.toFixed(0)}`, color: 'text-foreground' },
-            { label: '5th Percentile', value: `$${finalStats.p5.toFixed(0)}`, color: 'text-chart-red' },
-            { label: '95th Percentile', value: `$${finalStats.p95.toFixed(0)}`, color: 'text-chart-green' },
-            { label: 'Best Case', value: `$${finalStats.best.toFixed(0)}`, color: 'text-chart-green' },
-            { label: 'Worst Case', value: `$${finalStats.worst.toFixed(0)}`, color: 'text-chart-red' },
-          ].map(s => (
-            <div key={s.label} className="rounded-lg bg-secondary p-3">
-              <p className="text-[10px] text-muted-foreground uppercase">{s.label}</p>
-              <p className={`font-mono font-bold text-sm ${s.color}`}>{s.value}</p>
+        <>
+          {/* Key probability stats */}
+          <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
+            {[
+              { label: 'Profit Probability', value: `${finalStats.profitProb.toFixed(1)}%`, color: finalStats.profitProb >= 50 ? 'text-chart-green' : 'text-chart-red' },
+              { label: 'Mean Outcome', value: `$${finalStats.mean.toFixed(0)}`, color: finalStats.mean >= 0 ? 'text-chart-green' : 'text-chart-red' },
+              { label: 'Median', value: `$${finalStats.median.toFixed(0)}`, color: finalStats.median >= 0 ? 'text-chart-green' : 'text-chart-red' },
+              { label: '5th Percentile', value: `$${finalStats.p5.toFixed(0)}`, color: 'text-chart-red' },
+              { label: '95th Percentile', value: `$${finalStats.p95.toFixed(0)}`, color: 'text-chart-green' },
+              { label: 'Best Case', value: `$${finalStats.best.toFixed(0)}`, color: 'text-chart-green' },
+              { label: 'Worst Case', value: `$${finalStats.worst.toFixed(0)}`, color: 'text-chart-red' },
+            ].map(s => (
+              <div key={s.label} className="rounded-lg bg-secondary p-3">
+                <p className="text-[10px] text-muted-foreground uppercase">{s.label}</p>
+                <p className={`font-mono font-bold text-sm ${s.color}`}>{s.value}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Probability thresholds + drawdown stats */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="rounded-lg bg-secondary p-3">
+              <p className="text-[10px] text-muted-foreground uppercase">P(Profit ≥ $1K)</p>
+              <p className="font-mono font-bold text-sm text-chart-green">{finalStats.minProfit1000.toFixed(1)}%</p>
             </div>
-          ))}
-        </div>
+            <div className="rounded-lg bg-secondary p-3">
+              <p className="text-[10px] text-muted-foreground uppercase">P(Profit ≥ $5K)</p>
+              <p className="font-mono font-bold text-sm text-chart-green">{finalStats.minProfit5000.toFixed(1)}%</p>
+            </div>
+            <div className="rounded-lg bg-secondary p-3">
+              <p className="text-[10px] text-muted-foreground uppercase">P(Profit ≥ $10K)</p>
+              <p className="font-mono font-bold text-sm text-chart-green">{finalStats.minProfit10000.toFixed(1)}%</p>
+            </div>
+            <div className="rounded-lg bg-secondary p-3">
+              <p className="text-[10px] text-muted-foreground uppercase">Avg Max Drawdown</p>
+              <p className="font-mono font-bold text-sm text-chart-red">-${finalStats.avgDrawdown.toFixed(0)}</p>
+            </div>
+            <div className="rounded-lg bg-secondary p-3">
+              <p className="text-[10px] text-muted-foreground uppercase">Median Max DD</p>
+              <p className="font-mono font-bold text-sm text-chart-red">-${finalStats.medianDrawdown.toFixed(0)}</p>
+            </div>
+            <div className="rounded-lg bg-secondary p-3">
+              <p className="text-[10px] text-muted-foreground uppercase">Worst Max DD</p>
+              <p className="font-mono font-bold text-sm text-chart-red">-${finalStats.maxDrawdown.toFixed(0)}</p>
+            </div>
+          </div>
+        </>
       )}
 
+      {/* Equity Cone chart */}
       {chartData.length > 0 && (
         <div className="rounded-xl border border-border bg-card p-5">
           <h3 className="text-sm font-semibold mb-4 text-muted-foreground uppercase tracking-wider">Equity Cone ({simCount} simulations)</h3>
@@ -146,6 +228,26 @@ export default function MonteCarloPage() {
               <Line type="monotone" dataKey="median" stroke="hsl(var(--chart-blue))" strokeWidth={2.5} dot={false} name="Median" />
               <Line type="monotone" dataKey="mean" stroke="hsl(var(--primary))" strokeWidth={1.5} strokeDasharray="5 5" dot={false} name="Mean" />
             </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* Distribution Histogram */}
+      {distributionData.length > 0 && (
+        <div className="rounded-xl border border-border bg-card p-5">
+          <h3 className="text-sm font-semibold mb-4 text-muted-foreground uppercase tracking-wider">Outcome Distribution</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={distributionData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <XAxis dataKey="range" stroke="hsl(var(--muted-foreground))" fontSize={9} interval="preserveStartEnd" />
+              <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} />
+              <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`${v} sims`, 'Count']} labelFormatter={(l) => `Range: ${l}`} />
+              <Bar dataKey="count" radius={[3, 3, 0, 0]}>
+                {distributionData.map((entry, i) => (
+                  <Cell key={i} fill={entry.rangeMin >= 0 ? 'hsl(var(--chart-green))' : 'hsl(var(--chart-red))'} fillOpacity={0.8} />
+                ))}
+              </Bar>
+            </BarChart>
           </ResponsiveContainer>
         </div>
       )}
