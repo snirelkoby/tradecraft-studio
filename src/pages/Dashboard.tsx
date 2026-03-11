@@ -206,16 +206,21 @@ export default function Dashboard() {
               <ResponsiveContainer width="100%" height={300}>
                 <AreaChart data={cumData}>
                   <defs>
-                    <linearGradient id="pnlGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="hsl(var(--chart-blue))" stopOpacity={0.3} />
-                      <stop offset="100%" stopColor="hsl(var(--chart-blue))" stopOpacity={0} />
+                    <linearGradient id="pnlGradGreen" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(var(--chart-green))" stopOpacity={0.3} />
+                      <stop offset="100%" stopColor="hsl(var(--chart-green))" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="pnlGradPurple" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                      <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey={cumMode === 'trade' ? 'label' : 'date'} stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                  <XAxis dataKey={cumMode === 'trade' ? 'date' : 'date'} stroke="hsl(var(--muted-foreground))" fontSize={11} />
                   <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={(v) => `$${v}`} />
                   <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`$${v.toFixed(2)}`, 'P&L']} />
-                  <Area type="monotone" dataKey="pnl" stroke="hsl(var(--chart-blue))" strokeWidth={2} fill="url(#pnlGrad)" />
+                  <Area type="monotone" dataKey="pnlPositive" stroke="hsl(var(--chart-green))" strokeWidth={2} fill="url(#pnlGradGreen)" name="P&L" />
+                  <Area type="monotone" dataKey="pnlNegative" stroke="hsl(var(--primary))" strokeWidth={2} fill="url(#pnlGradPurple)" name="P&L" />
                 </AreaChart>
               </ResponsiveContainer>
               </div>
