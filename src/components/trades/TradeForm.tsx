@@ -36,10 +36,19 @@ export function TradeForm({ onSuccess, accountName }: TradeFormProps) {
     stop_loss: '',
     take_profit: '',
     quantity: '1',
-    fees: '0',
+    fees: '3',
     strategy: '',
     notes: '',
   });
+
+  // Update default fees when asset type changes
+  useEffect(() => {
+    if (form.asset_type === 'Futures') {
+      setForm(prev => ({ ...prev, fees: '3' }));
+    } else {
+      setForm(prev => ({ ...prev, fees: '0' }));
+    }
+  }, [form.asset_type]);
 
   // Fetch blueprints for dropdown
   useEffect(() => {
