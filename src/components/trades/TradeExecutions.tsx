@@ -11,17 +11,24 @@ import { format, parseISO } from 'date-fns';
 
 interface TradeExecutionsProps {
   tradeId: string;
+  tradeEntryDate?: string;
 }
 
-export function TradeExecutions({ tradeId }: TradeExecutionsProps) {
+export function TradeExecutions({ tradeId, tradeEntryDate }: TradeExecutionsProps) {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [adding, setAdding] = useState(false);
+
+  // Default to trade entry date or now
+  const defaultDate = tradeEntryDate
+    ? new Date(tradeEntryDate).toISOString().slice(0, 16)
+    : new Date().toISOString().slice(0, 16);
+
   const [form, setForm] = useState({
     execution_type: 'entry',
     price: '',
     quantity: '1',
-    executed_at: new Date().toISOString().slice(0, 16),
+    executed_at: defaultDate,
   });
 
   const { data: executions, isLoading } = useQuery({
@@ -53,7 +60,7 @@ export function TradeExecutions({ tradeId }: TradeExecutionsProps) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['trade-executions', tradeId] });
       setAdding(false);
-      setForm({ execution_type: 'entry', price: '', quantity: '1', executed_at: new Date().toISOString().slice(0, 16) });
+      setForm({ execution_type: 'entry', price: '', quantity: '1', executed_at: defaultDate });
       toast.success('Execution added');
     },
     onError: (err: any) => toast.error(err.message),
@@ -70,6 +77,8 @@ export function TradeExecutions({ tradeId }: TradeExecutionsProps) {
     },
   });
 
+  const nowLocal = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
@@ -80,7 +89,7 @@ export function TradeExecutions({ tradeId }: TradeExecutionsProps) {
       </div>
 
       {adding && (
-        <div className="grid grid-cols-4 gap-2 bg-secondary rounded-lg p-3">
+        <div className="grid grid-cols-5 gap-2 bg-secondary rounded-lg p-3">
           <Select value={form.execution_type} onValueChange={v => setForm({ ...form, execution_type: v })}>
             <SelectTrigger className="bg-background text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -90,6 +99,9 @@ export function TradeExecutions({ tradeId }: TradeExecutionsProps) {
           </Select>
           <Input type="number" step="any" placeholder="Price" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} className="bg-background text-xs" />
           <Input type="number" min="1" placeholder="Qty" value={form.quantity} onChange={e => setForm({ ...form, quantity: e.target.value })} className="bg-background text-xs" />
+          <div className="flex gap-1">
+            <Input type="datetime-local" value={form.executed_at} onChange={e => setForm({ ...form, executed_at: e.target.value })} className="bg-background text-xs flex-1" />
+          </div>
           <Button size="sm" onClick={() => addExecution.mutate()} disabled={!form.price}>Add</Button>
         </div>
       )}

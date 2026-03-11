@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { Plus, Trash2, Copy } from 'lucide-react';
 
 const TIERS = ['AAA', 'AA', 'A', 'B', 'C', 'D'];
+const MAX_PER_TIER = 1;
 
 interface Blueprint {
   id?: string;
@@ -52,6 +53,11 @@ export default function Blueprints() {
   };
 
   const addSetup = (tier: string) => {
+    const current = blueprints[tier] || [];
+    if (current.length >= MAX_PER_TIER) {
+      toast.error(`Maximum ${MAX_PER_TIER} setup per tier (${tier}). Delete the existing one first.`);
+      return;
+    }
     setBlueprints(prev => ({
       ...prev,
       [tier]: [...(prev[tier] || []), { tier, name: '', logic: '', risk_rules: '', checklist: '', max_allocation: 1 }],
@@ -61,10 +67,17 @@ export default function Blueprints() {
   const duplicateSetup = (tier: string, idx: number) => {
     const src = blueprints[tier]?.[idx];
     if (!src) return;
+    // Duplicate to a different tier - find first empty one
+    const emptyTier = TIERS.find(t => (blueprints[t] || []).length < MAX_PER_TIER && t !== tier);
+    if (!emptyTier) {
+      toast.error('All tiers are full. Delete a setup first.');
+      return;
+    }
     setBlueprints(prev => ({
       ...prev,
-      [tier]: [...(prev[tier] || []), { ...src, id: undefined, name: src.name + ' (Copy)' }],
+      [emptyTier]: [...(prev[emptyTier] || []), { ...src, id: undefined, tier: emptyTier, name: src.name + ' (Copy)' }],
     }));
+    toast.success(`Duplicated to tier ${emptyTier}`);
   };
 
   const removeSetup = async (tier: string, idx: number) => {
@@ -122,7 +135,7 @@ export default function Blueprints() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Strategic Blueprints</h1>
-        <p className="text-muted-foreground text-sm">הגדר אסטרטגיות מסחר — ניתן ליצור מספר Setups בכל רמה</p>
+        <p className="text-muted-foreground text-sm">הגדר אסטרטגיות מסחר — Setup אחד לכל רמה</p>
       </div>
 
       <Tabs defaultValue="AAA">
@@ -135,18 +148,19 @@ export default function Blueprints() {
         </TabsList>
         {TIERS.map(tier => {
           const setups = blueprints[tier] || [];
+          const canAdd = setups.length < MAX_PER_TIER;
           return (
             <TabsContent key={tier} value={tier} className="mt-4 space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="font-bold text-lg">Level {tier} — {setups.length} Setups</h3>
-                <Button size="sm" onClick={() => addSetup(tier)}>
+                <h3 className="font-bold text-lg">Level {tier} — {setups.length}/{MAX_PER_TIER} Setup</h3>
+                <Button size="sm" onClick={() => addSetup(tier)} disabled={!canAdd}>
                   <Plus className="h-4 w-4 mr-1" /> New Setup
                 </Button>
               </div>
 
               {setups.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-border bg-secondary/30 p-8 text-center">
-                  <p className="text-muted-foreground text-sm mb-3">אין Setups ברמה זו</p>
+                  <p className="text-muted-foreground text-sm mb-3">אין Setup ברמה זו</p>
                   <Button variant="outline" onClick={() => addSetup(tier)}>
                     <Plus className="h-4 w-4 mr-1" /> צור Setup חדש
                   </Button>
@@ -155,7 +169,7 @@ export default function Blueprints() {
                 setups.map((bp, idx) => (
                   <div key={bp.id || `new-${idx}`} className="rounded-xl border border-border bg-card p-6 space-y-4">
                     <div className="flex items-center gap-3">
-                      <span className="text-xs font-mono text-muted-foreground bg-secondary px-2 py-1 rounded">#{idx + 1}</span>
+                      <span className="text-xs font-mono text-muted-foreground bg-secondary px-2 py-1 rounded">{tier}</span>
                       <div className="flex-1">
                         <Input
                           value={bp.name}
@@ -164,7 +178,7 @@ export default function Blueprints() {
                           className="bg-secondary text-lg font-semibold"
                         />
                       </div>
-                      <Button variant="ghost" size="icon" onClick={() => duplicateSetup(tier, idx)} title="Duplicate">
+                      <Button variant="ghost" size="icon" onClick={() => duplicateSetup(tier, idx)} title="Duplicate to another tier">
                         <Copy className="h-4 w-4 text-muted-foreground" />
                       </Button>
                       <Button variant="ghost" size="icon" onClick={() => removeSetup(tier, idx)} title="Delete">

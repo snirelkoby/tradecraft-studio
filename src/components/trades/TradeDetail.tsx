@@ -100,7 +100,6 @@ export function TradeDetail({ trade, open, onOpenChange, trades, onTradeChange }
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-5 pb-3 border-b border-border">
           <div className="flex items-center gap-3">
-            {/* Navigation arrows */}
             <div className="flex items-center gap-1 mr-2">
               <Button size="icon" variant="ghost" className="h-8 w-8" disabled={!hasPrev} onClick={goPrev}>
                 <ChevronLeft className="h-4 w-4" />
@@ -110,7 +109,7 @@ export function TradeDetail({ trade, open, onOpenChange, trades, onTradeChange }
               </Button>
             </div>
             <span className="text-xl font-bold">{trade.symbol}</span>
-            <span className="text-xs text-muted-foreground">{format(parseISO(trade.entry_date), 'MMM dd, yyyy')}</span>
+            <span className="text-xs text-muted-foreground">{format(parseISO(trade.entry_date), 'MMM dd, yyyy HH:mm')}</span>
             <Badge variant={trade.direction === 'long' ? 'default' : 'secondary'}>
               {trade.direction === 'long' ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
               {trade.direction.toUpperCase()}
@@ -216,6 +215,7 @@ export function TradeDetail({ trade, open, onOpenChange, trades, onTradeChange }
               entryDate={trade.entry_date}
               exitDate={trade.exit_date}
               direction={trade.direction}
+              tradeId={trade.id}
             />
 
             <Tabs defaultValue="notes">
@@ -235,7 +235,7 @@ export function TradeDetail({ trade, open, onOpenChange, trades, onTradeChange }
               </TabsContent>
 
               <TabsContent value="executions">
-                <TradeExecutions tradeId={trade.id} />
+                <TradeExecutions tradeId={trade.id} tradeEntryDate={trade.entry_date} />
               </TabsContent>
 
               <TabsContent value="attachments">
