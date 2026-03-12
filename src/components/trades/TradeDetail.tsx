@@ -63,6 +63,11 @@ export function TradeDetail({ trade, open, onOpenChange, trades, onTradeChange }
   const goNext = () => { if (hasNext && trades && onTradeChange) onTradeChange(trades[currentIndex + 1]); };
 
   const handleSave = async () => {
+    const symbol = (form.symbol || trade.symbol).toUpperCase();
+    if (!symbol) {
+      toast.error('Symbol is required');
+      return;
+    }
     try {
       let pnl = trade.pnl;
       let pnlPercent = trade.pnl_percent;
@@ -72,18 +77,27 @@ export function TradeDetail({ trade, open, onOpenChange, trades, onTradeChange }
       const fees = Number(form.fees) || 0;
       const dir = form.direction || trade.direction;
       const status = exitPrice ? 'closed' : 'open';
+      const assetType = form.asset_type || trade.asset_type;
+      const isFutures = assetType === 'Futures';
 
       if (exitPrice) {
-        const raw = dir === 'long'
-          ? (exitPrice - entryPrice) * qty
-          : (entryPrice - exitPrice) * qty;
-        pnl = raw - fees;
-        pnlPercent = ((exitPrice - entryPrice) / entryPrice) * 100 * (dir === 'short' ? -1 : 1);
+        if (isFutures) {
+          const result = calculateFuturesPnl(symbol, dir as 'long' | 'short', entryPrice, exitPrice, qty, fees);
+          pnl = result.pnl;
+          pnlPercent = result.pnlPercent;
+        } else {
+          const raw = dir === 'long'
+            ? (exitPrice - entryPrice) * qty
+            : (entryPrice - exitPrice) * qty;
+          pnl = raw - fees;
+          pnlPercent = ((exitPrice - entryPrice) / entryPrice) * 100 * (dir === 'short' ? -1 : 1);
+        }
       }
 
       await updateTrade.mutateAsync({
         id: trade.id,
         ...form,
+        symbol,
         pnl,
         pnl_percent: pnlPercent,
         status,
