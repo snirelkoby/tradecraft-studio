@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import { Plus, Trash2, Copy } from 'lucide-react';
 
 const TIERS = ['AAA', 'AA', 'A', 'B', 'C', 'D'];
-const MAX_PER_TIER = 1;
+const MAX_PER_TIER = 100;
 
 interface Blueprint {
   id?: string;

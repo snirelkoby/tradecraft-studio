@@ -4,13 +4,15 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TradingViewWidget } from './TradingViewWidget';
 import { ScreenshotUpload } from './ScreenshotUpload';
 import { TradeExecutions } from './TradeExecutions';
 import { TrendingUp, TrendingDown, Edit3, Save, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
-import { useUpdateTrade } from '@/hooks/useTrades';
+import { useUpdateTrade, calculateFuturesPnl } from '@/hooks/useTrades';
+import { FUTURES_CONFIG, FOREX_PAIRS, CRYPTO_SYMBOLS } from '@/lib/assetConfig';
 import { toast } from 'sonner';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -32,6 +34,8 @@ export function TradeDetail({ trade, open, onOpenChange, trades, onTradeChange }
   useEffect(() => {
     if (trade) {
       setForm({
+        symbol: trade.symbol,
+        asset_type: trade.asset_type,
         entry_price: trade.entry_price,
         exit_price: trade.exit_price,
         stop_loss: trade.stop_loss,
@@ -59,6 +63,11 @@ export function TradeDetail({ trade, open, onOpenChange, trades, onTradeChange }
   const goNext = () => { if (hasNext && trades && onTradeChange) onTradeChange(trades[currentIndex + 1]); };
 
   const handleSave = async () => {
+    const symbol = (form.symbol || trade.symbol).toUpperCase();
+    if (!symbol) {
+      toast.error('Symbol is required');
+      return;
+    }
     try {
       let pnl = trade.pnl;
       let pnlPercent = trade.pnl_percent;
@@ -68,18 +77,27 @@ export function TradeDetail({ trade, open, onOpenChange, trades, onTradeChange }
       const fees = Number(form.fees) || 0;
       const dir = form.direction || trade.direction;
       const status = exitPrice ? 'closed' : 'open';
+      const assetType = form.asset_type || trade.asset_type;
+      const isFutures = assetType === 'Futures';
 
       if (exitPrice) {
-        const raw = dir === 'long'
-          ? (exitPrice - entryPrice) * qty
-          : (entryPrice - exitPrice) * qty;
-        pnl = raw - fees;
-        pnlPercent = ((exitPrice - entryPrice) / entryPrice) * 100 * (dir === 'short' ? -1 : 1);
+        if (isFutures) {
+          const result = calculateFuturesPnl(symbol, dir as 'long' | 'short', entryPrice, exitPrice, qty, fees);
+          pnl = result.pnl;
+          pnlPercent = result.pnlPercent;
+        } else {
+          const raw = dir === 'long'
+            ? (exitPrice - entryPrice) * qty
+            : (entryPrice - exitPrice) * qty;
+          pnl = raw - fees;
+          pnlPercent = ((exitPrice - entryPrice) / entryPrice) * 100 * (dir === 'short' ? -1 : 1);
+        }
       }
 
       await updateTrade.mutateAsync({
         id: trade.id,
         ...form,
+        symbol,
         pnl,
         pnl_percent: pnlPercent,
         status,
@@ -108,7 +126,11 @@ export function TradeDetail({ trade, open, onOpenChange, trades, onTradeChange }
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
-            <span className="text-xl font-bold">{trade.symbol}</span>
+            {editing ? (
+              <Input className="h-8 w-28 text-lg font-bold bg-secondary" value={form.symbol ?? trade.symbol} onChange={e => setForm({ ...form, symbol: e.target.value.toUpperCase() })} />
+            ) : (
+              <span className="text-xl font-bold">{trade.symbol}</span>
+            )}
             <span className="text-xs text-muted-foreground">{format(parseISO(trade.entry_date), 'MMM dd, yyyy HH:mm')}</span>
             <Badge variant={trade.direction === 'long' ? 'default' : 'secondary'}>
               {trade.direction === 'long' ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}

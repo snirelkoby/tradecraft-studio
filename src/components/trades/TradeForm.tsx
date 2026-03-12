@@ -76,6 +76,10 @@ export function TradeForm({ onSuccess, accountName }: TradeFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!form.symbol || form.symbol.trim() === '') {
+      toast.error('Please select or enter a symbol');
+      return;
+    }
     const entryPrice = parseFloat(form.entry_price);
     const exitPrice = form.exit_price ? parseFloat(form.exit_price) : null;
     const qty = isFutures ? Math.round(parseFloat(form.quantity) || 1) : (parseFloat(form.quantity) || 1);
