@@ -32,6 +32,8 @@ export function TradeDetail({ trade, open, onOpenChange, trades, onTradeChange }
   useEffect(() => {
     if (trade) {
       setForm({
+        symbol: trade.symbol,
+        asset_type: trade.asset_type,
         entry_price: trade.entry_price,
         exit_price: trade.exit_price,
         stop_loss: trade.stop_loss,
