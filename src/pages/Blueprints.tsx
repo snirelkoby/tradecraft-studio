@@ -53,11 +53,6 @@ export default function Blueprints() {
   };
 
   const addSetup = (tier: string) => {
-    const current = blueprints[tier] || [];
-    if (current.length >= MAX_PER_TIER) {
-      toast.error(`Maximum ${MAX_PER_TIER} setup per tier (${tier}). Delete the existing one first.`);
-      return;
-    }
     setBlueprints(prev => ({
       ...prev,
       [tier]: [...(prev[tier] || []), { tier, name: '', logic: '', risk_rules: '', checklist: '', max_allocation: 1 }],
@@ -67,17 +62,14 @@ export default function Blueprints() {
   const duplicateSetup = (tier: string, idx: number) => {
     const src = blueprints[tier]?.[idx];
     if (!src) return;
-    // Duplicate to a different tier - find first empty one
-    const emptyTier = TIERS.find(t => (blueprints[t] || []).length < MAX_PER_TIER && t !== tier);
-    if (!emptyTier) {
-      toast.error('All tiers are full. Delete a setup first.');
-      return;
-    }
+    // Duplicate to a different tier
+    const targetTier = TIERS.find(t => t !== tier);
+    if (!targetTier) return;
     setBlueprints(prev => ({
       ...prev,
-      [emptyTier]: [...(prev[emptyTier] || []), { ...src, id: undefined, tier: emptyTier, name: src.name + ' (Copy)' }],
+      [targetTier]: [...(prev[targetTier] || []), { ...src, id: undefined, tier: targetTier, name: src.name + ' (Copy)' }],
     }));
-    toast.success(`Duplicated to tier ${emptyTier}`);
+    toast.success(`Duplicated to tier ${targetTier}`);
   };
 
   const removeSetup = async (tier: string, idx: number) => {
