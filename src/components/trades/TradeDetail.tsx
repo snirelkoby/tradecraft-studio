@@ -126,7 +126,11 @@ export function TradeDetail({ trade, open, onOpenChange, trades, onTradeChange }
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
-            <span className="text-xl font-bold">{trade.symbol}</span>
+            {editing ? (
+              <Input className="h-8 w-28 text-lg font-bold bg-secondary" value={form.symbol ?? trade.symbol} onChange={e => setForm({ ...form, symbol: e.target.value.toUpperCase() })} />
+            ) : (
+              <span className="text-xl font-bold">{trade.symbol}</span>
+            )}
             <span className="text-xs text-muted-foreground">{format(parseISO(trade.entry_date), 'MMM dd, yyyy HH:mm')}</span>
             <Badge variant={trade.direction === 'long' ? 'default' : 'secondary'}>
               {trade.direction === 'long' ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}

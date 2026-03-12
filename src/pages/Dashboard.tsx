@@ -216,11 +216,10 @@ export default function Dashboard() {
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey={cumMode === 'trade' ? 'date' : 'date'} stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                  <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={11} />
                   <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={(v) => `$${v}`} />
                   <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`$${v.toFixed(2)}`, 'P&L']} />
-                  <Area type="monotone" dataKey="pnlPositive" stroke="hsl(var(--chart-green))" strokeWidth={2} fill="url(#pnlGradGreen)" name="P&L" />
-                  <Area type="monotone" dataKey="pnlNegative" stroke="hsl(var(--primary))" strokeWidth={2} fill="url(#pnlGradPurple)" name="P&L" />
+                  <Area type="monotone" dataKey="pnl" stroke="hsl(var(--chart-green))" strokeWidth={2} fill="url(#pnlGradGreen)" name="P&L" connectNulls />
                 </AreaChart>
               </ResponsiveContainer>
               </div>
