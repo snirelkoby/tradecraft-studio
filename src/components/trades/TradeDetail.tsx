@@ -4,13 +4,15 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TradingViewWidget } from './TradingViewWidget';
 import { ScreenshotUpload } from './ScreenshotUpload';
 import { TradeExecutions } from './TradeExecutions';
 import { TrendingUp, TrendingDown, Edit3, Save, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
-import { useUpdateTrade } from '@/hooks/useTrades';
+import { useUpdateTrade, calculateFuturesPnl } from '@/hooks/useTrades';
+import { FUTURES_CONFIG, FOREX_PAIRS, CRYPTO_SYMBOLS } from '@/lib/assetConfig';
 import { toast } from 'sonner';
 import type { Database } from '@/integrations/supabase/types';
 
