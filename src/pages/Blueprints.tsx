@@ -140,12 +140,11 @@ export default function Blueprints() {
         </TabsList>
         {TIERS.map(tier => {
           const setups = blueprints[tier] || [];
-          const canAdd = setups.length < MAX_PER_TIER;
           return (
             <TabsContent key={tier} value={tier} className="mt-4 space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="font-bold text-lg">Level {tier} — {setups.length}/{MAX_PER_TIER} Setup</h3>
-                <Button size="sm" onClick={() => addSetup(tier)} disabled={!canAdd}>
+                <h3 className="font-bold text-lg">Level {tier} — {setups.length} Setups</h3>
+                <Button size="sm" onClick={() => addSetup(tier)}>
                   <Plus className="h-4 w-4 mr-1" /> New Setup
                 </Button>
               </div>
