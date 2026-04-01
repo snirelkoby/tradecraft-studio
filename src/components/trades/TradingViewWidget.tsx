@@ -47,13 +47,25 @@ export function TradingViewWidget({ symbol, assetType, entryPrice, exitPrice, en
 
     const tvSymbol = getTradingViewSymbol(symbol, assetType);
 
-    const script = document.createElement('script');
-    script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
-    script.async = true;
-    script.innerHTML = JSON.stringify({
+    // Calculate appropriate interval based on trade duration
+    let interval = '15';
+    if (entryDate) {
+      const entry = new Date(entryDate);
+      const exit = exitDate ? new Date(exitDate) : new Date();
+      const durationHours = (exit.getTime() - entry.getTime()) / (1000 * 60 * 60);
+      if (durationHours <= 2) interval = '1';
+      else if (durationHours <= 8) interval = '5';
+      else if (durationHours <= 24) interval = '15';
+      else if (durationHours <= 72) interval = '60';
+      else if (durationHours <= 720) interval = '240';
+      else interval = 'D';
+    }
+
+    // Calculate range to zoom to trade period
+    const widgetConfig: Record<string, any> = {
       autosize: true,
       symbol: tvSymbol,
-      interval: '1',
+      interval,
       timezone: 'Etc/UTC',
       theme: 'dark',
       style: '1',
@@ -65,10 +77,26 @@ export function TradingViewWidget({ symbol, assetType, entryPrice, exitPrice, en
       save_image: true,
       calendar: false,
       support_host: 'https://www.tradingview.com',
-    });
+    };
+
+    // Set range based on trade dates
+    if (entryDate) {
+      const entry = new Date(entryDate);
+      const exit = exitDate ? new Date(exitDate) : new Date();
+      const durationMs = exit.getTime() - entry.getTime();
+      const padding = Math.max(durationMs * 0.5, 3600000); // at least 1hr padding
+      const from = new Date(entry.getTime() - padding);
+      const to = new Date(exit.getTime() + padding);
+      widgetConfig.range = `${format(from, 'yyyy-MM-dd')}|${format(to, 'yyyy-MM-dd')}`;
+    }
+
+    const script = document.createElement('script');
+    script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
+    script.async = true;
+    script.innerHTML = JSON.stringify(widgetConfig);
 
     containerRef.current.appendChild(script);
-  }, [symbol, assetType]);
+  }, [symbol, assetType, entryDate, exitDate]);
 
   const isLong = direction === 'long';
   const entryColor = isLong ? 'hsl(var(--chart-green))' : 'hsl(var(--primary))';

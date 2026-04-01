@@ -210,7 +210,7 @@ export default function Dashboard() {
                       <stop offset="0%" stopColor="hsl(var(--chart-green))" stopOpacity={0.3} />
                       <stop offset="100%" stopColor="hsl(var(--chart-green))" stopOpacity={0} />
                     </linearGradient>
-                    <linearGradient id="pnlGradPurple" x1="0" y1="0" x2="0" y2="1">
+                    <linearGradient id="pnlGradPurple" x1="0" y1="1" x2="0" y2="0">
                       <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
                       <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
                     </linearGradient>
@@ -219,7 +219,8 @@ export default function Dashboard() {
                   <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={11} />
                   <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={(v) => `$${v}`} />
                   <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`$${v.toFixed(2)}`, 'P&L']} />
-                  <Area type="monotone" dataKey="pnl" stroke="hsl(var(--chart-green))" strokeWidth={2} fill="url(#pnlGradGreen)" name="P&L" connectNulls />
+                  <Area type="monotone" dataKey="pnlPositive" stroke="hsl(var(--chart-green))" strokeWidth={2} fill="url(#pnlGradGreen)" name="Profit" connectNulls />
+                  <Area type="monotone" dataKey="pnlNegative" stroke="hsl(var(--primary))" strokeWidth={2} fill="url(#pnlGradPurple)" name="Loss" connectNulls />
                 </AreaChart>
               </ResponsiveContainer>
               </div>

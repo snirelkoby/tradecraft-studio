@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,6 +13,8 @@ import { TradeExecutions } from './TradeExecutions';
 import { TrendingUp, TrendingDown, Edit3, Save, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { useUpdateTrade, calculateFuturesPnl } from '@/hooks/useTrades';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 import { FUTURES_CONFIG, FOREX_PAIRS, CRYPTO_SYMBOLS } from '@/lib/assetConfig';
 import { toast } from 'sonner';
 import type { Database } from '@/integrations/supabase/types';
@@ -27,9 +30,26 @@ interface TradeDetailProps {
 }
 
 export function TradeDetail({ trade, open, onOpenChange, trades, onTradeChange }: TradeDetailProps) {
+  const { user } = useAuth();
   const updateTrade = useUpdateTrade();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<Partial<Trade>>({});
+  const [unrealizedPnl, setUnrealizedPnl] = useState<number | null>(null);
+  const [livePrice, setLivePrice] = useState<number | null>(null);
+
+  // Fetch blueprints for strategy dropdown
+  const { data: blueprints } = useQuery({
+    queryKey: ['blueprints', user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('blueprints')
+        .select('id, name, tier')
+        .order('tier', { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
 
   useEffect(() => {
     if (trade) {
@@ -50,7 +70,40 @@ export function TradeDetail({ trade, open, onOpenChange, trades, onTradeChange }
         status: trade.status,
       });
       setEditing(false);
+      setUnrealizedPnl(null);
+      setLivePrice(null);
     }
+  }, [trade]);
+
+  // Fetch live price for open trades
+  useEffect(() => {
+    if (!trade || trade.status !== 'open') return;
+    const fetchPrice = async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('stock-data', {
+          body: { symbol: trade.symbol, assetType: trade.asset_type },
+        });
+        if (error) return;
+        const price = data?.price ?? data?.regularMarketPrice ?? data?.lastPrice;
+        if (price) {
+          setLivePrice(price);
+          const dir = trade.direction as 'long' | 'short';
+          const qty = trade.quantity;
+          const fees = trade.fees ?? 0;
+          const isFutures = trade.asset_type === 'Futures';
+          if (isFutures) {
+            const result = calculateFuturesPnl(trade.symbol, dir, trade.entry_price, price, qty, fees);
+            setUnrealizedPnl(result.pnl);
+          } else {
+            const raw = dir === 'long'
+              ? (price - trade.entry_price) * qty
+              : (trade.entry_price - price) * qty;
+            setUnrealizedPnl(raw - fees);
+          }
+        }
+      } catch {}
+    };
+    fetchPrice();
   }, [trade]);
 
   if (!trade) return null;
@@ -69,8 +122,13 @@ export function TradeDetail({ trade, open, onOpenChange, trades, onTradeChange }
       return;
     }
     try {
-      let pnl = trade.pnl;
-      let pnlPercent = trade.pnl_percent;
+      // Fetch executions to calculate scale in/out
+      const { data: executions } = await supabase
+        .from('trade_executions')
+        .select('*')
+        .eq('trade_id', trade.id)
+        .order('executed_at', { ascending: true });
+
       const entryPrice = Number(form.entry_price);
       const exitPrice = form.exit_price ? Number(form.exit_price) : null;
       const qty = Number(form.quantity) || 1;
@@ -80,17 +138,45 @@ export function TradeDetail({ trade, open, onOpenChange, trades, onTradeChange }
       const assetType = form.asset_type || trade.asset_type;
       const isFutures = assetType === 'Futures';
 
-      if (exitPrice) {
+      // Calculate weighted average entry/exit from executions
+      let avgEntry = entryPrice;
+      let avgExit = exitPrice;
+      let totalEntryQty = qty;
+      let totalExitQty = exitPrice ? qty : 0;
+
+      if (executions && executions.length > 0) {
+        const entries = executions.filter(e => e.execution_type === 'entry');
+        const exits = executions.filter(e => e.execution_type === 'exit');
+
+        if (entries.length > 0) {
+          // Include main trade entry + all scale-ins
+          const allEntries = [{ price: entryPrice, quantity: qty }, ...entries.map(e => ({ price: Number(e.price), quantity: Number(e.quantity) }))];
+          totalEntryQty = allEntries.reduce((s, e) => s + e.quantity, 0);
+          avgEntry = allEntries.reduce((s, e) => s + e.price * e.quantity, 0) / totalEntryQty;
+        }
+
+        if (exits.length > 0 && exitPrice) {
+          const allExits = [{ price: exitPrice, quantity: qty }, ...exits.map(e => ({ price: Number(e.price), quantity: Number(e.quantity) }))];
+          totalExitQty = allExits.reduce((s, e) => s + e.quantity, 0);
+          avgExit = allExits.reduce((s, e) => s + e.price * e.quantity, 0) / totalExitQty;
+        }
+      }
+
+      let pnl = trade.pnl;
+      let pnlPercent = trade.pnl_percent;
+
+      if (avgExit) {
+        const effectiveQty = Math.min(totalEntryQty, totalExitQty);
         if (isFutures) {
-          const result = calculateFuturesPnl(symbol, dir as 'long' | 'short', entryPrice, exitPrice, qty, fees);
+          const result = calculateFuturesPnl(symbol, dir as 'long' | 'short', avgEntry, avgExit, effectiveQty, fees);
           pnl = result.pnl;
           pnlPercent = result.pnlPercent;
         } else {
           const raw = dir === 'long'
-            ? (exitPrice - entryPrice) * qty
-            : (entryPrice - exitPrice) * qty;
+            ? (avgExit - avgEntry) * effectiveQty
+            : (avgEntry - avgExit) * effectiveQty;
           pnl = raw - fees;
-          pnlPercent = ((exitPrice - entryPrice) / entryPrice) * 100 * (dir === 'short' ? -1 : 1);
+          pnlPercent = ((avgExit - avgEntry) / avgEntry) * 100 * (dir === 'short' ? -1 : 1);
         }
       }
 
@@ -109,8 +195,15 @@ export function TradeDetail({ trade, open, onOpenChange, trades, onTradeChange }
     }
   };
 
-  const pnl = trade.pnl;
-  const pnlColor = pnl !== null ? (pnl >= 0 ? 'text-[hsl(var(--chart-green))]' : 'text-[hsl(var(--chart-red))]') : '';
+  const displayPnl = trade.status === 'open' ? unrealizedPnl : trade.pnl;
+  const pnlLabel = trade.status === 'open' ? 'Unrealized P&L' : 'Net P&L';
+  const pnlColor = displayPnl !== null ? (displayPnl >= 0 ? 'text-[hsl(var(--chart-green))]' : 'text-[hsl(var(--chart-red))]') : '';
+
+  // Build strategy options from blueprints
+  const strategyOptions = (blueprints ?? []).map(b => ({
+    value: b.name || `${b.tier} Setup`,
+    label: `${b.name || 'Unnamed'} (${b.tier})`,
+  }));
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -155,11 +248,14 @@ export function TradeDetail({ trade, open, onOpenChange, trades, onTradeChange }
           {/* Left Panel - Stats */}
           <div className="lg:w-72 shrink-0 border-r border-border p-5 space-y-4">
             <div>
-              <p className="text-[10px] text-muted-foreground uppercase">Net P&L</p>
+              <p className="text-[10px] text-muted-foreground uppercase">{pnlLabel}</p>
               <p className={`text-2xl font-bold font-mono ${pnlColor}`}>
-                {pnl !== null ? `${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)}` : '—'}
+                {displayPnl !== null ? `${displayPnl >= 0 ? '+' : ''}$${displayPnl.toFixed(2)}` : '—'}
               </p>
-              {trade.pnl_percent !== null && (
+              {trade.status === 'open' && livePrice !== null && (
+                <p className="text-xs text-muted-foreground">Live: ${livePrice.toFixed(2)}</p>
+              )}
+              {trade.status === 'closed' && trade.pnl_percent !== null && (
                 <p className={`text-sm font-mono ${pnlColor}`}>{trade.pnl_percent.toFixed(2)}%</p>
               )}
             </div>
@@ -201,7 +297,20 @@ export function TradeDetail({ trade, open, onOpenChange, trades, onTradeChange }
                 editing ? <Input type="number" step="any" className="h-7 w-24 text-xs bg-secondary" value={form.fees ?? 0} onChange={e => setForm({ ...form, fees: Number(e.target.value) })} />
                 : `$${trade.fees ?? 0}`
               } />
-              <StatRow label="Strategy" value={trade.strategy || '—'} />
+              <StatRow label="Strategy" value={
+                editing ? (
+                  <Select value={form.strategy ?? ''} onValueChange={v => setForm({ ...form, strategy: v })}>
+                    <SelectTrigger className="h-7 w-36 text-xs bg-secondary">
+                      <SelectValue placeholder="Select..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {strategyOptions.map(s => (
+                        <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (trade.strategy || '—')
+              } />
 
               <div className="border-t border-border pt-2 mt-2">
                 <StatRow label="Entry" value={
