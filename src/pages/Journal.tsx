@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useTrades } from '@/hooks/useTrades';
@@ -8,69 +8,138 @@ import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
-import { format, addDays, subDays, parseISO, startOfWeek, endOfWeek, isWithinInterval } from 'date-fns';
+import {
+  format, parseISO, startOfMonth, endOfMonth, startOfWeek, endOfWeek,
+  eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths,
+  isWithinInterval, subDays
+} from 'date-fns';
 
 const MOODS = ['🔥 Confident', '😊 Good', '😐 Neutral', '😰 Anxious', '😤 Frustrated', '🥶 Fearful'];
+
+interface JournalEntry {
+  id: string;
+  date: string;
+  pre_market_notes: string | null;
+  post_market_notes: string | null;
+  mood: string | null;
+  lessons: string | null;
+}
 
 export default function Journal() {
   const { user } = useAuth();
   const { data: allTrades } = useTrades();
-  const [date, setDate] = useState(new Date());
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
+  const [weeklySummaries, setWeeklySummaries] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
+
+  // Entry form state
   const [entry, setEntry] = useState({
     pre_market_notes: '', post_market_notes: '', mood: '', lessons: '', id: '',
     energy_before: 5, focus_before: 5, confidence_before: 5,
-    energy_after: 5, focus_after: 5, confidence_after: 5,
   });
-  const [loading, setLoading] = useState(true);
   const [weeklyAi, setWeeklyAi] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
 
-  const dateStr = format(date, 'yyyy-MM-dd');
+  // Calendar grid computation
+  const calendarDays = useMemo(() => {
+    const monthStart = startOfMonth(currentMonth);
+    const monthEnd = endOfMonth(currentMonth);
+    const calStart = startOfWeek(monthStart, { weekStartsOn: 0 }); // Sunday
+    const calEnd = endOfWeek(monthEnd, { weekStartsOn: 0 }); // Saturday
+    return eachDayOfInterval({ start: calStart, end: calEnd });
+  }, [currentMonth]);
 
-  // Trades for this day
+  // Get weeks for weekly summary sections
+  const weeks = useMemo(() => {
+    const result: Date[][] = [];
+    for (let i = 0; i < calendarDays.length; i += 7) {
+      result.push(calendarDays.slice(i, i + 7));
+    }
+    return result;
+  }, [calendarDays]);
+
+  // Trade dates set
+  const tradeDates = useMemo(() => {
+    const dates = new Set<string>();
+    (allTrades ?? []).forEach(t => {
+      dates.add(t.entry_date.slice(0, 10));
+    });
+    return dates;
+  }, [allTrades]);
+
+  // Journal dates set
+  const journalDates = useMemo(() => {
+    const dates = new Set<string>();
+    journalEntries.forEach(j => dates.add(j.date));
+    return dates;
+  }, [journalEntries]);
+
+  // Load journal entries for the month
+  useEffect(() => {
+    if (!user) return;
+    const loadMonth = async () => {
+      setLoading(true);
+      const monthStart = format(startOfWeek(startOfMonth(currentMonth), { weekStartsOn: 0 }), 'yyyy-MM-dd');
+      const monthEnd = format(endOfWeek(endOfMonth(currentMonth), { weekStartsOn: 0 }), 'yyyy-MM-dd');
+
+      const [journalRes, weeklyRes] = await Promise.all([
+        supabase.from('journal_entries').select('*').gte('date', monthStart).lte('date', monthEnd),
+        supabase.from('weekly_summaries' as any).select('*').gte('week_start', monthStart).lte('week_start', monthEnd),
+      ]);
+
+      setJournalEntries((journalRes.data ?? []) as JournalEntry[]);
+
+      const summaries: Record<string, string> = {};
+      ((weeklyRes.data ?? []) as any[]).forEach((ws: any) => {
+        summaries[ws.week_start] = ws.summary;
+      });
+      setWeeklySummaries(summaries);
+      setLoading(false);
+    };
+    loadMonth();
+  }, [user, currentMonth]);
+
+  // Load selected day entry
+  useEffect(() => {
+    if (!selectedDate || !user) return;
+    const dateStr = format(selectedDate, 'yyyy-MM-dd');
+    const loadDay = async () => {
+      const [journalRes, mindsetRes] = await Promise.all([
+        supabase.from('journal_entries').select('*').eq('date', dateStr).maybeSingle(),
+        supabase.from('mindset_entries').select('*').eq('date', dateStr).maybeSingle(),
+      ]);
+      const j = journalRes.data;
+      const m = mindsetRes.data;
+      setEntry({
+        id: j?.id ?? '',
+        pre_market_notes: j?.pre_market_notes ?? '',
+        post_market_notes: j?.post_market_notes ?? '',
+        mood: j?.mood ?? '',
+        lessons: j?.lessons ?? '',
+        energy_before: m?.energy_level ?? 5,
+        focus_before: m?.focus_level ?? 5,
+        confidence_before: m?.confidence_level ?? 5,
+      });
+    };
+    loadDay();
+  }, [selectedDate, user]);
+
+  const selectedDateStr = selectedDate ? format(selectedDate, 'yyyy-MM-dd') : '';
+
+  // Trades for selected day
   const dayTrades = useMemo(() => {
-    if (!allTrades) return [];
-    return allTrades.filter(t => t.entry_date?.slice(0, 10) === dateStr);
-  }, [allTrades, dateStr]);
+    if (!allTrades || !selectedDate) return [];
+    return allTrades.filter(t => t.entry_date?.slice(0, 10) === selectedDateStr);
+  }, [allTrades, selectedDateStr]);
 
   const dayPnl = dayTrades.filter(t => t.status === 'closed' && t.pnl !== null).reduce((s, t) => s + (t.pnl ?? 0), 0);
 
-  useEffect(() => {
-    if (!user) return;
-    loadEntry();
-  }, [user, dateStr]);
-
-  const loadEntry = async () => {
-    setLoading(true);
-    // Load from mindset_entries for energy/focus/confidence
-    const [journalRes, mindsetRes] = await Promise.all([
-      supabase.from('journal_entries').select('*').eq('date', dateStr).maybeSingle(),
-      supabase.from('mindset_entries').select('*').eq('date', dateStr).maybeSingle(),
-    ]);
-
-    const j = journalRes.data;
-    const m = mindsetRes.data;
-
-    setEntry({
-      id: j?.id ?? '',
-      pre_market_notes: j?.pre_market_notes ?? '',
-      post_market_notes: j?.post_market_notes ?? '',
-      mood: j?.mood ?? '',
-      lessons: j?.lessons ?? '',
-      energy_before: m?.energy_level ?? 5,
-      focus_before: m?.focus_level ?? 5,
-      confidence_before: m?.confidence_level ?? 5,
-      energy_after: 5,
-      focus_after: 5,
-      confidence_after: 5,
-    });
-    setLoading(false);
-  };
-
   const save = async () => {
-    if (!user) return;
+    if (!user || !selectedDate) return;
+    const dateStr = format(selectedDate, 'yyyy-MM-dd');
 
-    // Save journal entry
     if (entry.id) {
       const { error } = await supabase.from('journal_entries').update({
         pre_market_notes: entry.pre_market_notes,
@@ -91,7 +160,7 @@ export default function Journal() {
       if (error) return toast.error(error.message);
     }
 
-    // Save mindset entry (upsert)
+    // Save mindset
     const existing = await supabase.from('mindset_entries').select('id').eq('date', dateStr).maybeSingle();
     if (existing.data) {
       await supabase.from('mindset_entries').update({
@@ -112,56 +181,63 @@ export default function Journal() {
     }
 
     toast.success('Journal saved');
-    loadEntry();
+    // Refresh entries
+    setJournalEntries(prev => {
+      const exists = prev.find(e => e.date === dateStr);
+      if (exists) return prev.map(e => e.date === dateStr ? { ...e, ...entry, date: dateStr } : e);
+      return [...prev, { id: 'new', date: dateStr, pre_market_notes: entry.pre_market_notes, post_market_notes: entry.post_market_notes, mood: entry.mood, lessons: entry.lessons }];
+    });
+  };
+
+  const saveWeeklySummary = async (weekStart: string, summary: string) => {
+    if (!user) return;
+    // Upsert weekly summary
+    const { data: existing } = await supabase.from('weekly_summaries' as any).select('id').eq('week_start', weekStart).maybeSingle();
+    if ((existing as any)?.id) {
+      await supabase.from('weekly_summaries' as any).update({ summary } as any).eq('id', (existing as any).id);
+    } else {
+      await supabase.from('weekly_summaries' as any).insert({ user_id: user.id, week_start: weekStart, summary } as any);
+    }
+    setWeeklySummaries(prev => ({ ...prev, [weekStart]: summary }));
+    toast.success('Weekly summary saved');
+  };
+
+  const getDayStatus = (day: Date): 'journaled' | 'missed' | 'none' => {
+    const ds = format(day, 'yyyy-MM-dd');
+    const hasJournal = journalDates.has(ds);
+    const hasTrades = tradeDates.has(ds);
+    if (hasJournal) return 'journaled';
+    if (hasTrades) return 'missed';
+    return 'none';
   };
 
   const generateWeeklyAi = async () => {
     if (!user) return;
     setAiLoading(true);
     try {
-      const weekStart = startOfWeek(date, { weekStartsOn: 0 });
-      const weekEnd = endOfWeek(date, { weekStartsOn: 0 });
-
-      // Get journal entries for this week and previous weeks
+      const weekStart = startOfWeek(selectedDate || new Date(), { weekStartsOn: 0 });
+      const weekEnd = endOfWeek(selectedDate || new Date(), { weekStartsOn: 0 });
       const { data: journals } = await supabase.from('journal_entries').select('*')
         .gte('date', format(subDays(weekStart, 21), 'yyyy-MM-dd'))
         .lte('date', format(weekEnd, 'yyyy-MM-dd'))
         .order('date', { ascending: true });
-
-      // Get trades for this week
       const weekTrades = (allTrades ?? []).filter(t => {
         const td = new Date(t.entry_date);
         return isWithinInterval(td, { start: weekStart, end: weekEnd });
       });
-
       const thisWeekJournals = (journals ?? []).filter(j => {
         const jd = new Date(j.date);
         return isWithinInterval(jd, { start: weekStart, end: weekEnd });
       });
-      const prevWeekJournals = (journals ?? []).filter(j => {
-        const jd = new Date(j.date);
-        return !isWithinInterval(jd, { start: weekStart, end: weekEnd });
-      });
-
       const prompt = `אתה מנטור מסחר מקצועי. נתח את השבוע הזה ותן עצות:
-
-יומני השבוע הנוכחי:
-${thisWeekJournals.map(j => `${j.date}: mood=${j.mood}, pre=${j.pre_market_notes}, post=${j.post_market_notes}, lessons=${j.lessons}`).join('\n')}
-
-עסקאות השבוע: ${weekTrades.length} עסקאות, P&L: $${weekTrades.filter(t => t.pnl).reduce((s, t) => s + (t.pnl ?? 0), 0).toFixed(0)}
+יומני השבוע: ${thisWeekJournals.map(j => `${j.date}: mood=${j.mood}, pre=${j.pre_market_notes}, post=${j.post_market_notes}, lessons=${j.lessons}`).join('\n')}
+עסקאות: ${weekTrades.length}, P&L: $${weekTrades.filter(t => t.pnl).reduce((s, t) => s + (t.pnl ?? 0), 0).toFixed(0)}
 Win rate: ${weekTrades.filter(t => (t.pnl ?? 0) > 0).length}/${weekTrades.filter(t => t.status === 'closed').length}
-
-יומני שבועות קודמים (להשוואה):
-${prevWeekJournals.slice(-7).map(j => `${j.date}: mood=${j.mood}, lessons=${j.lessons}`).join('\n')}
-
-תן ניתוח בעברית: מה היה טוב, מה צריך לשפר, דפוסים שחוזרים, ועצות קונקרטיות לשבוע הבא.`;
-
-      const { data, error } = await supabase.functions.invoke('trade-insights', {
-        body: { prompt },
-      });
+תן ניתוח בעברית: מה היה טוב, מה צריך לשפר, ועצות לשבוע הבא.`;
+      const { data, error } = await supabase.functions.invoke('trade-insights', { body: { prompt } });
       if (error) throw error;
       setWeeklyAi(data?.result || data?.message || 'No analysis available');
-    } catch (err: any) {
+    } catch {
       toast.error('Error generating analysis');
     } finally {
       setAiLoading(false);
@@ -177,27 +253,131 @@ ${prevWeekJournals.slice(-7).map(j => `${j.date}: mood=${j.mood}, lessons=${j.le
     </div>
   );
 
+  const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Trading Journal</h1>
-        <p className="text-muted-foreground text-sm">Daily pre & post market reflections</p>
+        <p className="text-muted-foreground text-sm">Calendar view — click a day to write your journal</p>
       </div>
 
-      {/* Date Navigation */}
+      {/* Month Navigation */}
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => setDate(subDays(date, 1))}><ChevronLeft className="h-4 w-4" /></Button>
-        <h2 className="text-lg font-semibold font-mono">{format(date, 'EEEE, MMMM dd yyyy')}</h2>
-        <Button variant="ghost" size="icon" onClick={() => setDate(addDays(date, 1))}><ChevronRight className="h-4 w-4" /></Button>
+        <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <h2 className="text-lg font-semibold font-mono">{format(currentMonth, 'MMMM yyyy')}</h2>
+        <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
+          <ChevronRight className="h-4 w-4" />
+        </Button>
       </div>
 
-      {loading ? (
-        <p className="text-muted-foreground text-center py-8">Loading...</p>
-      ) : (
-        <div className="space-y-4">
+      {/* Legend */}
+      <div className="flex gap-4 text-xs text-muted-foreground">
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 rounded-sm bg-[hsl(var(--chart-green))]/30 border border-[hsl(var(--chart-green))]" />
+          <span>Journaled</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 rounded-sm bg-[hsl(var(--chart-red))]/30 border border-[hsl(var(--chart-red))]" />
+          <span>Traded but no journal</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 rounded-sm bg-secondary border border-border" />
+          <span>No activity</span>
+        </div>
+      </div>
+
+      {/* Calendar Grid */}
+      <div className="rounded-xl border border-border bg-card overflow-hidden">
+        {/* Day headers */}
+        <div className="grid grid-cols-7 border-b border-border">
+          {DAY_NAMES.map(d => (
+            <div key={d} className="text-center text-xs font-semibold text-muted-foreground py-2">{d}</div>
+          ))}
+        </div>
+
+        {/* Week rows with weekly summary */}
+        {weeks.map((week, wi) => {
+          const weekStartStr = format(week[0], 'yyyy-MM-dd');
+          return (
+            <div key={wi}>
+              <div className="grid grid-cols-7 border-b border-border">
+                {week.map((day, di) => {
+                  const ds = format(day, 'yyyy-MM-dd');
+                  const status = getDayStatus(day);
+                  const isCurrentMonth = isSameMonth(day, currentMonth);
+                  const isSelected = selectedDate && isSameDay(day, selectedDate);
+                  const isToday = isSameDay(day, new Date());
+
+                  let cellBg = '';
+                  if (status === 'journaled') cellBg = 'bg-[hsl(var(--chart-green))]/10 border-[hsl(var(--chart-green))]/30';
+                  else if (status === 'missed') cellBg = 'bg-[hsl(var(--chart-red))]/10 border-[hsl(var(--chart-red))]/30';
+
+                  return (
+                    <button
+                      key={di}
+                      onClick={() => setSelectedDate(day)}
+                      className={`relative p-2 min-h-[60px] border-r border-border last:border-r-0 transition-colors text-left
+                        ${!isCurrentMonth ? 'opacity-30' : ''}
+                        ${isSelected ? 'ring-2 ring-primary ring-inset' : ''}
+                        ${isToday ? 'font-bold' : ''}
+                        ${cellBg}
+                        hover:bg-accent/50`}
+                    >
+                      <span className={`text-xs ${isToday ? 'bg-primary text-primary-foreground rounded-full w-6 h-6 flex items-center justify-center' : ''}`}>
+                        {format(day, 'd')}
+                      </span>
+                      {tradeDates.has(ds) && (
+                        <div className="absolute bottom-1 right-1">
+                          <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Weekly Summary Row */}
+              <div className="border-b border-border bg-secondary/30 px-4 py-2">
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] text-muted-foreground uppercase font-semibold shrink-0 w-24">Week Summary</span>
+                  <input
+                    type="text"
+                    className="flex-1 bg-transparent border-none text-xs placeholder:text-muted-foreground/50 focus:outline-none"
+                    placeholder="What did you learn this week?"
+                    value={weeklySummaries[weekStartStr] ?? ''}
+                    onChange={e => setWeeklySummaries(prev => ({ ...prev, [weekStartStr]: e.target.value }))}
+                    onBlur={() => {
+                      const val = weeklySummaries[weekStartStr];
+                      if (val !== undefined) saveWeeklySummary(weekStartStr, val);
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Selected Day Details */}
+      {selectedDate && (
+        <div className="space-y-4 animate-fade-in">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-bold">{format(selectedDate, 'EEEE, MMMM dd yyyy')}</h3>
+            <div className="flex gap-2">
+              <Button onClick={save} size="sm" className="font-bold">Save</Button>
+              <Button variant="outline" size="sm" onClick={generateWeeklyAi} disabled={aiLoading}>
+                <Sparkles className="h-4 w-4 mr-1" />
+                {aiLoading ? 'Analyzing...' : 'AI Analysis'}
+              </Button>
+            </div>
+          </div>
+
           {/* Mood */}
           <div className="max-w-xs">
-            <label className="text-xs text-muted-foreground uppercase mb-1 block">Mood / Mental State</label>
+            <label className="text-xs text-muted-foreground uppercase mb-1 block">Mood</label>
             <Select value={entry.mood} onValueChange={v => setEntry({ ...entry, mood: v })}>
               <SelectTrigger className="bg-secondary"><SelectValue placeholder="How are you feeling?" /></SelectTrigger>
               <SelectContent>
@@ -206,68 +386,43 @@ ${prevWeekJournals.slice(-7).map(j => `${j.date}: mood=${j.mood}, lessons=${j.le
             </Select>
           </div>
 
-          {/* Energy/Focus/Confidence - Pre-market */}
-          <div className="grid md:grid-cols-2 gap-4">
-            <div className="rounded-xl border border-border bg-card p-5 space-y-4">
-              <h3 className="font-bold text-sm flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-[hsl(var(--chart-blue))]" />
-                Pre-Market State
-              </h3>
-              <SliderRow label="Energy" value={entry.energy_before} onChange={v => setEntry({ ...entry, energy_before: v })} emoji="⚡" />
-              <SliderRow label="Focus" value={entry.focus_before} onChange={v => setEntry({ ...entry, focus_before: v })} emoji="🎯" />
-              <SliderRow label="Confidence" value={entry.confidence_before} onChange={v => setEntry({ ...entry, confidence_before: v })} emoji="💪" />
-            </div>
-
-            <div className="rounded-xl border border-border bg-card p-5 space-y-4">
-              <h3 className="font-bold text-sm flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-[hsl(var(--chart-green))]" />
-                Post-Market State
-              </h3>
-              <SliderRow label="Energy" value={entry.energy_after} onChange={v => setEntry({ ...entry, energy_after: v })} emoji="⚡" />
-              <SliderRow label="Focus" value={entry.focus_after} onChange={v => setEntry({ ...entry, focus_after: v })} emoji="🎯" />
-              <SliderRow label="Confidence" value={entry.confidence_after} onChange={v => setEntry({ ...entry, confidence_after: v })} emoji="💪" />
-            </div>
+          {/* Energy/Focus/Confidence */}
+          <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+            <h4 className="font-bold text-xs uppercase text-muted-foreground">Mental State</h4>
+            <SliderRow label="Energy" value={entry.energy_before} onChange={v => setEntry({ ...entry, energy_before: v })} emoji="⚡" />
+            <SliderRow label="Focus" value={entry.focus_before} onChange={v => setEntry({ ...entry, focus_before: v })} emoji="🎯" />
+            <SliderRow label="Confidence" value={entry.confidence_before} onChange={v => setEntry({ ...entry, confidence_before: v })} emoji="💪" />
           </div>
 
           <div className="grid md:grid-cols-2 gap-4">
-            {/* Pre-market */}
             <div className="rounded-xl border border-border bg-card p-5 space-y-3">
-              <h3 className="font-bold text-sm flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-[hsl(var(--chart-blue))]" />
-                Pre-Market Notes
-              </h3>
-              <p className="text-xs text-muted-foreground">Market outlook, plan for today, key levels to watch</p>
+              <h4 className="font-bold text-sm flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-[hsl(var(--chart-blue))]" />Pre-Market Notes
+              </h4>
               <Textarea
                 value={entry.pre_market_notes}
                 onChange={e => setEntry({ ...entry, pre_market_notes: e.target.value })}
-                className="bg-secondary min-h-[200px]"
-                placeholder="What's your plan for today? Key levels? News events?"
+                className="bg-secondary min-h-[150px]"
+                placeholder="Plan, key levels, news events..."
               />
             </div>
-
-            {/* Post-market */}
             <div className="rounded-xl border border-border bg-card p-5 space-y-3">
-              <h3 className="font-bold text-sm flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-[hsl(var(--chart-green))]" />
-                Post-Market Review
-              </h3>
-              <p className="text-xs text-muted-foreground">What happened? Did you follow your plan?</p>
+              <h4 className="font-bold text-sm flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-[hsl(var(--chart-green))]" />Post-Market Review
+              </h4>
               <Textarea
                 value={entry.post_market_notes}
                 onChange={e => setEntry({ ...entry, post_market_notes: e.target.value })}
-                className="bg-secondary min-h-[200px]"
+                className="bg-secondary min-h-[150px]"
                 placeholder="How did the day go? Did you follow your rules?"
               />
             </div>
           </div>
 
-          {/* Day highlights */}
+          {/* Day trades */}
           {dayTrades.length > 0 && (
             <div className="rounded-xl border border-border bg-card p-5 space-y-3">
-              <h3 className="font-bold text-sm flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-primary" />
-                Today's Trades ({dayTrades.length})
-              </h3>
+              <h4 className="font-bold text-sm">Today's Trades ({dayTrades.length})</h4>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                 <div className="rounded-lg bg-secondary p-3">
                   <p className="text-[10px] text-muted-foreground uppercase">Trades</p>
@@ -281,15 +436,11 @@ ${prevWeekJournals.slice(-7).map(j => `${j.date}: mood=${j.mood}, lessons=${j.le
                 </div>
                 <div className="rounded-lg bg-secondary p-3">
                   <p className="text-[10px] text-muted-foreground uppercase">Winners</p>
-                  <p className="font-mono font-bold text-[hsl(var(--chart-green))]">
-                    {dayTrades.filter(t => (t.pnl ?? 0) > 0).length}
-                  </p>
+                  <p className="font-mono font-bold text-[hsl(var(--chart-green))]">{dayTrades.filter(t => (t.pnl ?? 0) > 0).length}</p>
                 </div>
                 <div className="rounded-lg bg-secondary p-3">
                   <p className="text-[10px] text-muted-foreground uppercase">Losers</p>
-                  <p className="font-mono font-bold text-[hsl(var(--chart-red))]">
-                    {dayTrades.filter(t => (t.pnl ?? 0) < 0).length}
-                  </p>
+                  <p className="font-mono font-bold text-[hsl(var(--chart-red))]">{dayTrades.filter(t => (t.pnl ?? 0) < 0).length}</p>
                 </div>
               </div>
               <div className="space-y-1">
@@ -297,10 +448,7 @@ ${prevWeekJournals.slice(-7).map(j => `${j.date}: mood=${j.mood}, lessons=${j.le
                   <div key={t.id} className="flex items-center justify-between text-xs bg-secondary rounded-lg px-3 py-2">
                     <div className="flex items-center gap-2">
                       <span className="font-bold">{t.symbol}</span>
-                      <span className={t.direction === 'long' ? 'text-[hsl(var(--chart-green))]' : 'text-[hsl(var(--chart-red))]'}>
-                        {t.direction.toUpperCase()}
-                      </span>
-                      <span className="text-muted-foreground">{t.strategy || ''}</span>
+                      <span className={t.direction === 'long' ? 'text-[hsl(var(--chart-green))]' : 'text-[hsl(var(--chart-red))]'}>{t.direction.toUpperCase()}</span>
                     </div>
                     <span className={`font-mono font-bold ${(t.pnl ?? 0) >= 0 ? 'text-[hsl(var(--chart-green))]' : 'text-[hsl(var(--chart-red))]'}`}>
                       {t.pnl != null ? `${t.pnl >= 0 ? '+' : ''}$${t.pnl.toFixed(2)}` : 'Open'}
@@ -313,10 +461,9 @@ ${prevWeekJournals.slice(-7).map(j => `${j.date}: mood=${j.mood}, lessons=${j.le
 
           {/* Lessons */}
           <div className="rounded-xl border border-border bg-card p-5 space-y-3">
-            <h3 className="font-bold text-sm flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-[hsl(var(--chart-yellow))]" />
-              Lessons Learned
-            </h3>
+            <h4 className="font-bold text-sm flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-[hsl(var(--chart-yellow))]" />Lessons Learned
+            </h4>
             <Textarea
               value={entry.lessons}
               onChange={e => setEntry({ ...entry, lessons: e.target.value })}
@@ -325,21 +472,12 @@ ${prevWeekJournals.slice(-7).map(j => `${j.date}: mood=${j.mood}, lessons=${j.le
             />
           </div>
 
-          <div className="flex gap-3">
-            <Button onClick={save} className="font-bold">SAVE JOURNAL ENTRY</Button>
-            <Button variant="outline" onClick={generateWeeklyAi} disabled={aiLoading}>
-              <Sparkles className="h-4 w-4 mr-2" />
-              {aiLoading ? 'Analyzing...' : 'Weekly AI Analysis'}
-            </Button>
-          </div>
-
-          {/* Weekly AI Analysis */}
+          {/* AI Analysis */}
           {weeklyAi && (
             <div className="rounded-xl border border-primary/30 bg-primary/5 p-5 space-y-3">
-              <h3 className="font-bold text-sm flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-primary" />
-                Weekly AI Analysis
-              </h3>
+              <h4 className="font-bold text-sm flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" />Weekly AI Analysis
+              </h4>
               <div className="text-sm whitespace-pre-wrap leading-relaxed">{weeklyAi}</div>
             </div>
           )}
