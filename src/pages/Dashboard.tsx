@@ -252,28 +252,40 @@ export default function Dashboard() {
                 </button>
               </div>
             </div>
-            {cumData.length > 0 ? (
+            {cumBaseData.length > 0 ? (
               <div key={cumMode} className="animate-fade-in">
-              <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={cumData}>
-                  <defs>
-                    <linearGradient id="fillGreen" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="hsl(var(--chart-green))" stopOpacity={0.4} />
-                      <stop offset="100%" stopColor="hsl(var(--chart-green))" stopOpacity={0.05} />
-                    </linearGradient>
-                    <linearGradient id="fillPurple" x1="0" y1="1" x2="0" y2="0">
-                      <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.4} />
-                      <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.05} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={11} />
-                  <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={(v) => `$${v}`} />
-                  <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`$${v.toFixed(2)}`, 'Cumulative P&L']} />
-                  <Area type="monotone" dataKey="pos" stroke="hsl(var(--chart-green))" strokeWidth={2} fill="url(#fillGreen)" baseValue={0} isAnimationActive={false} />
-                  <Area type="monotone" dataKey="neg" stroke="hsl(var(--primary))" strokeWidth={2} fill="url(#fillPurple)" baseValue={0} isAnimationActive={false} />
-                </AreaChart>
-              </ResponsiveContainer>
+                <ResponsiveContainer width="100%" height={300}>
+                  <AreaChart data={cumData}>
+                    <defs>
+                      <linearGradient id="fillGreen" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="hsl(var(--chart-green))" stopOpacity={0.4} />
+                        <stop offset="100%" stopColor="hsl(var(--chart-green))" stopOpacity={0.05} />
+                      </linearGradient>
+                      <linearGradient id="fillPurple" x1="0" y1="1" x2="0" y2="0">
+                        <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.4} />
+                        <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.05} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis
+                      type="number"
+                      dataKey="x"
+                      ticks={cumTicks}
+                      domain={['dataMin', 'dataMax']}
+                      stroke="hsl(var(--muted-foreground))"
+                      fontSize={11}
+                      tickFormatter={(value) => cumBaseData[Math.round(value)]?.date ?? ''}
+                    />
+                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={(v) => `$${v}`} />
+                    <Tooltip
+                      contentStyle={tooltipStyle}
+                      labelFormatter={(value) => cumBaseData[Math.round(Number(value))]?.date ?? ''}
+                      formatter={(_, __, item) => [`$${Number(item.payload?.pnl ?? 0).toFixed(2)}`, 'Cumulative P&L']}
+                    />
+                    <Area type="monotone" dataKey="positive" stroke="hsl(var(--chart-green))" strokeWidth={2} fill="url(#fillGreen)" baseValue={0} isAnimationActive={false} connectNulls={false} />
+                    <Area type="monotone" dataKey="negative" stroke="hsl(var(--primary))" strokeWidth={2} fill="url(#fillPurple)" baseValue={0} isAnimationActive={false} connectNulls={false} />
+                  </AreaChart>
+                </ResponsiveContainer>
               </div>
             ) : <p className="text-muted-foreground text-sm text-center py-12">No closed trades yet</p>}
           </div>
