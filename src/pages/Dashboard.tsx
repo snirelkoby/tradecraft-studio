@@ -41,6 +41,55 @@ type WidgetId = typeof ALL_WIDGETS[number]['id'];
 const DEFAULT_WIDGETS: WidgetId[] = ['quick-stats', 'kpi-main', 'kpi-secondary', 'cum-pnl', 'win-loss-pie', 'daily-bar', 'hourly-pnl', 'trade-candles'];
 const STORAGE_KEY = 'dashboard-widgets';
 
+type CumulativeBasePoint = {
+  date: string;
+  pnl: number;
+};
+
+type CumulativeChartPoint = CumulativeBasePoint & {
+  x: number;
+  positive: number | null;
+  negative: number | null;
+};
+
+const buildSplitCumulativeData = (points: CumulativeBasePoint[]): CumulativeChartPoint[] => {
+  const series: CumulativeChartPoint[] = [];
+
+  points.forEach((point, index) => {
+    if (index > 0) {
+      const previousPoint = points[index - 1];
+      const crossedZero =
+        (previousPoint.pnl < 0 && point.pnl > 0) ||
+        (previousPoint.pnl > 0 && point.pnl < 0);
+
+      if (crossedZero) {
+        const distanceToZero = Math.abs(previousPoint.pnl) + Math.abs(point.pnl);
+        const ratio = distanceToZero === 0 ? 0.5 : Math.abs(previousPoint.pnl) / distanceToZero;
+
+        series.push({
+          x: index - 1 + ratio,
+          date: point.date,
+          pnl: 0,
+          positive: 0,
+          negative: 0,
+        });
+      }
+    }
+
+    const pointOnPositiveSide = point.pnl > 0 || (point.pnl === 0 && (index === 0 || points[index - 1].pnl >= 0));
+
+    series.push({
+      x: index,
+      date: point.date,
+      pnl: point.pnl,
+      positive: pointOnPositiveSide ? point.pnl : null,
+      negative: pointOnPositiveSide ? null : point.pnl,
+    });
+  });
+
+  return series;
+};
+
 export default function Dashboard() {
   const { data: allTrades, isLoading } = useTrades();
   const { selectedAccount } = useSelectedAccount();
@@ -81,9 +130,9 @@ export default function Dashboard() {
 
   // Per-trade cumulative
   let cumPnl = 0;
-  const cumDataPerTrade = closed.map((t, i) => {
+  const cumDataPerTrade = closed.map((t) => {
     cumPnl += t.pnl ?? 0;
-    return { date: format(parseISO(t.entry_date), 'MMM dd'), pnl: cumPnl, pos: Math.max(0, cumPnl), neg: Math.min(0, cumPnl) };
+    return { date: format(parseISO(t.entry_date), 'MMM dd'), pnl: cumPnl };
   });
 
   // Per-day cumulative
@@ -97,10 +146,12 @@ export default function Dashboard() {
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([date, pnl]) => {
       dayCum += pnl;
-      return { date: format(parseISO(date), 'MMM dd'), pnl: dayCum, pos: Math.max(0, dayCum), neg: Math.min(0, dayCum) };
+      return { date: format(parseISO(date), 'MMM dd'), pnl: dayCum };
     });
 
-  const cumData = cumMode === 'trade' ? cumDataPerTrade : cumDataPerDay;
+  const cumBaseData = cumMode === 'trade' ? cumDataPerTrade : cumDataPerDay;
+  const cumData = buildSplitCumulativeData(cumBaseData);
+  const cumTicks = cumBaseData.map((_, index) => index);
 
   const dailyMap = new Map<string, number>();
   closed.forEach((t) => {
@@ -201,28 +252,40 @@ export default function Dashboard() {
                 </button>
               </div>
             </div>
-            {cumData.length > 0 ? (
+            {cumBaseData.length > 0 ? (
               <div key={cumMode} className="animate-fade-in">
-              <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={cumData}>
-                  <defs>
-                    <linearGradient id="fillGreen" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="hsl(var(--chart-green))" stopOpacity={0.4} />
-                      <stop offset="100%" stopColor="hsl(var(--chart-green))" stopOpacity={0.05} />
-                    </linearGradient>
-                    <linearGradient id="fillPurple" x1="0" y1="1" x2="0" y2="0">
-                      <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.4} />
-                      <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.05} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={11} />
-                  <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={(v) => `$${v}`} />
-                  <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`$${v.toFixed(2)}`, 'Cumulative P&L']} />
-                  <Area type="monotone" dataKey="pos" stroke="hsl(var(--chart-green))" strokeWidth={2} fill="url(#fillGreen)" baseValue={0} isAnimationActive={false} />
-                  <Area type="monotone" dataKey="neg" stroke="hsl(var(--primary))" strokeWidth={2} fill="url(#fillPurple)" baseValue={0} isAnimationActive={false} />
-                </AreaChart>
-              </ResponsiveContainer>
+                <ResponsiveContainer width="100%" height={300}>
+                  <AreaChart data={cumData}>
+                    <defs>
+                      <linearGradient id="fillGreen" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="hsl(var(--chart-green))" stopOpacity={0.4} />
+                        <stop offset="100%" stopColor="hsl(var(--chart-green))" stopOpacity={0.05} />
+                      </linearGradient>
+                      <linearGradient id="fillPurple" x1="0" y1="1" x2="0" y2="0">
+                        <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.4} />
+                        <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.05} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis
+                      type="number"
+                      dataKey="x"
+                      ticks={cumTicks}
+                      domain={['dataMin', 'dataMax']}
+                      stroke="hsl(var(--muted-foreground))"
+                      fontSize={11}
+                      tickFormatter={(value) => cumBaseData[Math.round(value)]?.date ?? ''}
+                    />
+                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={(v) => `$${v}`} />
+                    <Tooltip
+                      contentStyle={tooltipStyle}
+                      labelFormatter={(value) => cumBaseData[Math.round(Number(value))]?.date ?? ''}
+                      formatter={(_, __, item) => [`$${Number(item.payload?.pnl ?? 0).toFixed(2)}`, 'Cumulative P&L']}
+                    />
+                    <Area type="monotone" dataKey="positive" stroke="hsl(var(--chart-green))" strokeWidth={2} fill="url(#fillGreen)" baseValue={0} isAnimationActive={false} connectNulls={false} />
+                    <Area type="monotone" dataKey="negative" stroke="hsl(var(--primary))" strokeWidth={2} fill="url(#fillPurple)" baseValue={0} isAnimationActive={false} connectNulls={false} />
+                  </AreaChart>
+                </ResponsiveContainer>
               </div>
             ) : <p className="text-muted-foreground text-sm text-center py-12">No closed trades yet</p>}
           </div>
