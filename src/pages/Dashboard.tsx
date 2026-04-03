@@ -83,7 +83,7 @@ export default function Dashboard() {
   let cumPnl = 0;
   const cumDataPerTrade = closed.map((t, i) => {
     cumPnl += t.pnl ?? 0;
-    return { date: format(parseISO(t.entry_date), 'MMM dd'), pnl: cumPnl, pnlPositive: cumPnl >= 0 ? cumPnl : 0, pnlNegative: cumPnl < 0 ? cumPnl : 0 };
+    return { date: format(parseISO(t.entry_date), 'MMM dd'), pnl: cumPnl };
   });
 
   // Per-day cumulative
@@ -97,7 +97,7 @@ export default function Dashboard() {
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([date, pnl]) => {
       dayCum += pnl;
-      return { date: format(parseISO(date), 'MMM dd'), pnl: dayCum, pnlPositive: dayCum >= 0 ? dayCum : 0, pnlNegative: dayCum < 0 ? dayCum : 0 };
+      return { date: format(parseISO(date), 'MMM dd'), pnl: dayCum };
     });
 
   const cumData = cumMode === 'trade' ? cumDataPerTrade : cumDataPerDay;
@@ -206,21 +206,32 @@ export default function Dashboard() {
               <ResponsiveContainer width="100%" height={300}>
                 <AreaChart data={cumData}>
                   <defs>
-                    <linearGradient id="pnlGradGreen" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="hsl(var(--chart-green))" stopOpacity={0.3} />
-                      <stop offset="100%" stopColor="hsl(var(--chart-green))" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="pnlGradPurple" x1="0" y1="1" x2="0" y2="0">
-                      <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                      <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                    </linearGradient>
+                    {(() => {
+                      const maxVal = Math.max(...cumData.map(d => d.pnl));
+                      const minVal = Math.min(...cumData.map(d => d.pnl));
+                      const range = maxVal - minVal || 1;
+                      const zeroOffset = maxVal <= 0 ? 0 : minVal >= 0 ? 1 : maxVal / range;
+                      return (
+                        <>
+                          <linearGradient id="pnlFillSplit" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="hsl(var(--chart-green))" stopOpacity={0.3} />
+                            <stop offset={`${zeroOffset * 100}%`} stopColor="hsl(var(--chart-green))" stopOpacity={0.05} />
+                            <stop offset={`${zeroOffset * 100}%`} stopColor="hsl(var(--primary))" stopOpacity={0.05} />
+                            <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                          </linearGradient>
+                          <linearGradient id="pnlStrokeSplit" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset={`${zeroOffset * 100}%`} stopColor="hsl(var(--chart-green))" />
+                            <stop offset={`${zeroOffset * 100}%`} stopColor="hsl(var(--primary))" />
+                          </linearGradient>
+                        </>
+                      );
+                    })()}
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={11} />
                   <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={(v) => `$${v}`} />
                   <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`$${v.toFixed(2)}`, 'P&L']} />
-                  <Area type="monotone" dataKey="pnlPositive" stroke="hsl(var(--chart-green))" strokeWidth={2} fill="url(#pnlGradGreen)" name="Profit" connectNulls />
-                  <Area type="monotone" dataKey="pnlNegative" stroke="hsl(var(--primary))" strokeWidth={2} fill="url(#pnlGradPurple)" name="Loss" connectNulls />
+                  <Area type="monotone" dataKey="pnl" stroke="url(#pnlStrokeSplit)" strokeWidth={2} fill="url(#pnlFillSplit)" />
                 </AreaChart>
               </ResponsiveContainer>
               </div>
