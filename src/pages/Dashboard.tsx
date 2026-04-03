@@ -130,9 +130,9 @@ export default function Dashboard() {
 
   // Per-trade cumulative
   let cumPnl = 0;
-  const cumDataPerTrade = closed.map((t, i) => {
+  const cumDataPerTrade = closed.map((t) => {
     cumPnl += t.pnl ?? 0;
-    return { date: format(parseISO(t.entry_date), 'MMM dd'), pnl: cumPnl, pos: Math.max(0, cumPnl), neg: Math.min(0, cumPnl) };
+    return { date: format(parseISO(t.entry_date), 'MMM dd'), pnl: cumPnl };
   });
 
   // Per-day cumulative
@@ -146,10 +146,12 @@ export default function Dashboard() {
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([date, pnl]) => {
       dayCum += pnl;
-      return { date: format(parseISO(date), 'MMM dd'), pnl: dayCum, pos: Math.max(0, dayCum), neg: Math.min(0, dayCum) };
+      return { date: format(parseISO(date), 'MMM dd'), pnl: dayCum };
     });
 
-  const cumData = cumMode === 'trade' ? cumDataPerTrade : cumDataPerDay;
+  const cumBaseData = cumMode === 'trade' ? cumDataPerTrade : cumDataPerDay;
+  const cumData = buildSplitCumulativeData(cumBaseData);
+  const cumTicks = cumBaseData.map((_, index) => index);
 
   const dailyMap = new Map<string, number>();
   closed.forEach((t) => {
