@@ -97,7 +97,7 @@ export default function Dashboard() {
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([date, pnl]) => {
       dayCum += pnl;
-      return { date: format(parseISO(date), 'MMM dd'), pnl: dayCum };
+      return { date: format(parseISO(date), 'MMM dd'), pnl: dayCum, pos: Math.max(0, dayCum), neg: Math.min(0, dayCum) };
     });
 
   const cumData = cumMode === 'trade' ? cumDataPerTrade : cumDataPerDay;
