@@ -83,7 +83,7 @@ export default function Dashboard() {
   let cumPnl = 0;
   const cumDataPerTrade = closed.map((t, i) => {
     cumPnl += t.pnl ?? 0;
-    return { date: format(parseISO(t.entry_date), 'MMM dd'), pnl: cumPnl };
+    return { date: format(parseISO(t.entry_date), 'MMM dd'), pnl: cumPnl, pos: Math.max(0, cumPnl), neg: Math.min(0, cumPnl) };
   });
 
   // Per-day cumulative
@@ -97,7 +97,7 @@ export default function Dashboard() {
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([date, pnl]) => {
       dayCum += pnl;
-      return { date: format(parseISO(date), 'MMM dd'), pnl: dayCum };
+      return { date: format(parseISO(date), 'MMM dd'), pnl: dayCum, pos: Math.max(0, dayCum), neg: Math.min(0, dayCum) };
     });
 
   const cumData = cumMode === 'trade' ? cumDataPerTrade : cumDataPerDay;
@@ -206,32 +206,21 @@ export default function Dashboard() {
               <ResponsiveContainer width="100%" height={300}>
                 <AreaChart data={cumData}>
                   <defs>
-                    {(() => {
-                      const maxVal = Math.max(...cumData.map(d => d.pnl));
-                      const minVal = Math.min(...cumData.map(d => d.pnl));
-                      const range = maxVal - minVal || 1;
-                      const zeroOffset = maxVal <= 0 ? 0 : minVal >= 0 ? 1 : maxVal / range;
-                      return (
-                        <>
-                          <linearGradient id="pnlFillSplit" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="hsl(var(--chart-green))" stopOpacity={0.3} />
-                            <stop offset={`${zeroOffset * 100}%`} stopColor="hsl(var(--chart-green))" stopOpacity={0.05} />
-                            <stop offset={`${zeroOffset * 100}%`} stopColor="hsl(var(--primary))" stopOpacity={0.05} />
-                            <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                          </linearGradient>
-                          <linearGradient id="pnlStrokeSplit" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset={`${zeroOffset * 100}%`} stopColor="hsl(var(--chart-green))" />
-                            <stop offset={`${zeroOffset * 100}%`} stopColor="hsl(var(--primary))" />
-                          </linearGradient>
-                        </>
-                      );
-                    })()}
+                    <linearGradient id="fillGreen" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(var(--chart-green))" stopOpacity={0.4} />
+                      <stop offset="100%" stopColor="hsl(var(--chart-green))" stopOpacity={0.05} />
+                    </linearGradient>
+                    <linearGradient id="fillPurple" x1="0" y1="1" x2="0" y2="0">
+                      <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.4} />
+                      <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.05} />
+                    </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={11} />
                   <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={(v) => `$${v}`} />
-                  <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`$${v.toFixed(2)}`, 'P&L']} />
-                  <Area type="monotone" dataKey="pnl" stroke="url(#pnlStrokeSplit)" strokeWidth={2} fill="url(#pnlFillSplit)" />
+                  <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`$${v.toFixed(2)}`, 'Cumulative P&L']} />
+                  <Area type="monotone" dataKey="pos" stroke="hsl(var(--chart-green))" strokeWidth={2} fill="url(#fillGreen)" baseValue={0} isAnimationActive={false} />
+                  <Area type="monotone" dataKey="neg" stroke="hsl(var(--primary))" strokeWidth={2} fill="url(#fillPurple)" baseValue={0} isAnimationActive={false} />
                 </AreaChart>
               </ResponsiveContainer>
               </div>
