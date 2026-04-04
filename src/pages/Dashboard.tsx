@@ -10,8 +10,8 @@ import { StreakAlerts } from '@/components/dashboard/StreakAlerts';
 import { PositionSizerWidget } from '@/components/dashboard/PositionSizerWidget';
 import { QuickStatsWidget } from '@/components/dashboard/QuickStatsWidget';
 import {
-  Area, AreaChart, CartesianGrid, XAxis, YAxis, Tooltip,
-  ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, LineChart, Line
+  Area, CartesianGrid, XAxis, YAxis, Tooltip,
+  ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, ComposedChart
 } from 'recharts';
 import { format, parseISO } from 'date-fns';
 import { Button } from '@/components/ui/button';
@@ -255,7 +255,7 @@ export default function Dashboard() {
             {cumBaseData.length > 0 ? (
               <div key={cumMode} className="animate-fade-in">
                 <ResponsiveContainer width="100%" height={300}>
-                  <AreaChart data={cumData}>
+                  <ComposedChart data={cumData}>
                     <defs>
                       <linearGradient id="fillGreen" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="hsl(var(--chart-green))" stopOpacity={0.4} />
@@ -282,9 +282,11 @@ export default function Dashboard() {
                       labelFormatter={(value) => cumBaseData[Math.round(Number(value))]?.date ?? ''}
                       formatter={(_, __, item) => [`$${Number(item.payload?.pnl ?? 0).toFixed(2)}`, 'Cumulative P&L']}
                     />
-                    <Area type="monotone" dataKey="positive" stroke="hsl(var(--chart-green))" strokeWidth={2} fill="url(#fillGreen)" baseValue={0} isAnimationActive={false} connectNulls={false} />
-                    <Area type="monotone" dataKey="negative" stroke="hsl(var(--primary))" strokeWidth={2} fill="url(#fillPurple)" baseValue={0} isAnimationActive={false} connectNulls={false} />
-                  </AreaChart>
+                    <Area type="linear" dataKey="positive" stroke="none" fill="url(#fillGreen)" baseValue={0} isAnimationActive={false} connectNulls={false} />
+                    <Area type="linear" dataKey="negative" stroke="none" fill="url(#fillPurple)" baseValue={0} isAnimationActive={false} connectNulls={false} />
+                    <Line type="linear" dataKey="positive" stroke="hsl(var(--chart-green))" strokeWidth={2} dot={false} isAnimationActive={false} connectNulls={false} activeDot={{ r: 4 }} />
+                    <Line type="linear" dataKey="negative" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} isAnimationActive={false} connectNulls={false} activeDot={{ r: 4 }} />
+                  </ComposedChart>
                 </ResponsiveContainer>
               </div>
             ) : <p className="text-muted-foreground text-sm text-center py-12">No closed trades yet</p>}
