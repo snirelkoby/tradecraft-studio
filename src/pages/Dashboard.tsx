@@ -103,8 +103,13 @@ export default function Dashboard() {
     });
 
   const cumBaseData = cumMode === 'trade' ? cumDataPerTrade : cumDataPerDay;
-  const cumData = buildSplitCumulativeData(cumBaseData);
-  const cumTicks = cumBaseData.map((_, index) => index);
+
+  // Calculate gradient offset for zero-crossing color split
+  const cumPnls = cumBaseData.map(d => d.pnl);
+  const cumMax = Math.max(...cumPnls, 0);
+  const cumMin = Math.min(...cumPnls, 0);
+  const cumRange = cumMax - cumMin;
+  const gradientOffset = cumRange === 0 ? 0.5 : cumMax / cumRange;
 
   const dailyMap = new Map<string, number>();
   closed.forEach((t) => {
