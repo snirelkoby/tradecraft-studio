@@ -213,38 +213,28 @@ export default function Dashboard() {
             {cumBaseData.length > 0 ? (
               <div key={cumMode} className="animate-fade-in">
                 <ResponsiveContainer width="100%" height={300}>
-                  <ComposedChart data={cumData}>
+                  <AreaChart data={cumBaseData}>
                     <defs>
-                      <linearGradient id="fillGreen" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="hsl(var(--chart-green))" stopOpacity={0.4} />
-                        <stop offset="100%" stopColor="hsl(var(--chart-green))" stopOpacity={0.05} />
+                      <linearGradient id="cumSplitFill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset={0} stopColor="hsl(var(--chart-green))" stopOpacity={0.4} />
+                        <stop offset={gradientOffset} stopColor="hsl(var(--chart-green))" stopOpacity={0.1} />
+                        <stop offset={gradientOffset} stopColor="hsl(var(--primary))" stopOpacity={0.1} />
+                        <stop offset={1} stopColor="hsl(var(--primary))" stopOpacity={0.4} />
                       </linearGradient>
-                      <linearGradient id="fillPurple" x1="0" y1="1" x2="0" y2="0">
-                        <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.4} />
-                        <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.05} />
+                      <linearGradient id="cumSplitStroke" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset={gradientOffset} stopColor="hsl(var(--chart-green))" stopOpacity={1} />
+                        <stop offset={gradientOffset} stopColor="hsl(var(--primary))" stopOpacity={1} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis
-                      type="number"
-                      dataKey="x"
-                      ticks={cumTicks}
-                      domain={['dataMin', 'dataMax']}
-                      stroke="hsl(var(--muted-foreground))"
-                      fontSize={11}
-                      tickFormatter={(value) => cumBaseData[Math.round(value)]?.date ?? ''}
-                    />
+                    <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={11} />
                     <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={(v) => `$${v}`} />
                     <Tooltip
                       contentStyle={tooltipStyle}
-                      labelFormatter={(value) => cumBaseData[Math.round(Number(value))]?.date ?? ''}
-                      formatter={(_, __, item) => [`$${Number(item.payload?.pnl ?? 0).toFixed(2)}`, 'Cumulative P&L']}
+                      formatter={(v: number) => [`$${v.toFixed(2)}`, 'Cumulative P&L']}
                     />
-                    <Area type="linear" dataKey="positive" stroke="none" fill="url(#fillGreen)" baseValue={0} isAnimationActive={false} connectNulls={false} />
-                    <Area type="linear" dataKey="negative" stroke="none" fill="url(#fillPurple)" baseValue={0} isAnimationActive={false} connectNulls={false} />
-                    <Line type="linear" dataKey="positive" stroke="hsl(var(--chart-green))" strokeWidth={2} dot={false} isAnimationActive={false} connectNulls={false} activeDot={{ r: 4 }} />
-                    <Line type="linear" dataKey="negative" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} isAnimationActive={false} connectNulls={false} activeDot={{ r: 4 }} />
-                  </ComposedChart>
+                    <Area type="monotone" dataKey="pnl" stroke="url(#cumSplitStroke)" strokeWidth={2} fill="url(#cumSplitFill)" isAnimationActive={false} />
+                  </AreaChart>
                 </ResponsiveContainer>
               </div>
             ) : <p className="text-muted-foreground text-sm text-center py-12">No closed trades yet</p>}
