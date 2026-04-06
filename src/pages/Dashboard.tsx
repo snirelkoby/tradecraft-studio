@@ -41,54 +41,7 @@ type WidgetId = typeof ALL_WIDGETS[number]['id'];
 const DEFAULT_WIDGETS: WidgetId[] = ['quick-stats', 'kpi-main', 'kpi-secondary', 'cum-pnl', 'win-loss-pie', 'daily-bar', 'hourly-pnl', 'trade-candles'];
 const STORAGE_KEY = 'dashboard-widgets';
 
-type CumulativeBasePoint = {
-  date: string;
-  pnl: number;
-};
-
-type CumulativeChartPoint = CumulativeBasePoint & {
-  x: number;
-  positive: number | null;
-  negative: number | null;
-};
-
-const buildSplitCumulativeData = (points: CumulativeBasePoint[]): CumulativeChartPoint[] => {
-  const series: CumulativeChartPoint[] = [];
-
-  points.forEach((point, index) => {
-    if (index > 0) {
-      const previousPoint = points[index - 1];
-      const crossedZero =
-        (previousPoint.pnl < 0 && point.pnl > 0) ||
-        (previousPoint.pnl > 0 && point.pnl < 0);
-
-      if (crossedZero) {
-        const distanceToZero = Math.abs(previousPoint.pnl) + Math.abs(point.pnl);
-        const ratio = distanceToZero === 0 ? 0.5 : Math.abs(previousPoint.pnl) / distanceToZero;
-
-        series.push({
-          x: index - 1 + ratio,
-          date: point.date,
-          pnl: 0,
-          positive: 0,
-          negative: 0,
-        });
-      }
-    }
-
-    const pointOnPositiveSide = point.pnl > 0 || (point.pnl === 0 && (index === 0 || points[index - 1].pnl >= 0));
-
-    series.push({
-      x: index,
-      date: point.date,
-      pnl: point.pnl,
-      positive: pointOnPositiveSide ? point.pnl : null,
-      negative: pointOnPositiveSide ? null : point.pnl,
-    });
-  });
-
-  return series;
-};
+// No split data types needed - using gradient offset approach
 
 export default function Dashboard() {
   const { data: allTrades, isLoading } = useTrades();
