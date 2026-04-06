@@ -6,7 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import { toast } from 'sonner';
-import { format, subDays, parseISO } from 'date-fns';
+import {
+  format, subDays, parseISO, startOfMonth, endOfMonth, startOfWeek, endOfWeek,
+  eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths
+} from 'date-fns';
 import { Brain, Zap, Eye, ChevronLeft, ChevronRight, Save } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 
