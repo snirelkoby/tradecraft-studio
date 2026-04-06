@@ -10,8 +10,8 @@ import { StreakAlerts } from '@/components/dashboard/StreakAlerts';
 import { PositionSizerWidget } from '@/components/dashboard/PositionSizerWidget';
 import { QuickStatsWidget } from '@/components/dashboard/QuickStatsWidget';
 import {
-  Area, CartesianGrid, XAxis, YAxis, Tooltip,
-  ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, ComposedChart
+  AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip,
+  ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, LineChart, Line
 } from 'recharts';
 import { format, parseISO } from 'date-fns';
 import { Button } from '@/components/ui/button';
@@ -41,54 +41,7 @@ type WidgetId = typeof ALL_WIDGETS[number]['id'];
 const DEFAULT_WIDGETS: WidgetId[] = ['quick-stats', 'kpi-main', 'kpi-secondary', 'cum-pnl', 'win-loss-pie', 'daily-bar', 'hourly-pnl', 'trade-candles'];
 const STORAGE_KEY = 'dashboard-widgets';
 
-type CumulativeBasePoint = {
-  date: string;
-  pnl: number;
-};
-
-type CumulativeChartPoint = CumulativeBasePoint & {
-  x: number;
-  positive: number | null;
-  negative: number | null;
-};
-
-const buildSplitCumulativeData = (points: CumulativeBasePoint[]): CumulativeChartPoint[] => {
-  const series: CumulativeChartPoint[] = [];
-
-  points.forEach((point, index) => {
-    if (index > 0) {
-      const previousPoint = points[index - 1];
-      const crossedZero =
-        (previousPoint.pnl < 0 && point.pnl > 0) ||
-        (previousPoint.pnl > 0 && point.pnl < 0);
-
-      if (crossedZero) {
-        const distanceToZero = Math.abs(previousPoint.pnl) + Math.abs(point.pnl);
-        const ratio = distanceToZero === 0 ? 0.5 : Math.abs(previousPoint.pnl) / distanceToZero;
-
-        series.push({
-          x: index - 1 + ratio,
-          date: point.date,
-          pnl: 0,
-          positive: 0,
-          negative: 0,
-        });
-      }
-    }
-
-    const pointOnPositiveSide = point.pnl > 0 || (point.pnl === 0 && (index === 0 || points[index - 1].pnl >= 0));
-
-    series.push({
-      x: index,
-      date: point.date,
-      pnl: point.pnl,
-      positive: pointOnPositiveSide ? point.pnl : null,
-      negative: pointOnPositiveSide ? null : point.pnl,
-    });
-  });
-
-  return series;
-};
+// No split data types needed - using gradient offset approach
 
 export default function Dashboard() {
   const { data: allTrades, isLoading } = useTrades();
@@ -150,8 +103,13 @@ export default function Dashboard() {
     });
 
   const cumBaseData = cumMode === 'trade' ? cumDataPerTrade : cumDataPerDay;
-  const cumData = buildSplitCumulativeData(cumBaseData);
-  const cumTicks = cumBaseData.map((_, index) => index);
+
+  // Calculate gradient offset for zero-crossing color split
+  const cumPnls = cumBaseData.map(d => d.pnl);
+  const cumMax = Math.max(...cumPnls, 0);
+  const cumMin = Math.min(...cumPnls, 0);
+  const cumRange = cumMax - cumMin;
+  const gradientOffset = cumRange === 0 ? 0.5 : cumMax / cumRange;
 
   const dailyMap = new Map<string, number>();
   closed.forEach((t) => {
@@ -255,38 +213,28 @@ export default function Dashboard() {
             {cumBaseData.length > 0 ? (
               <div key={cumMode} className="animate-fade-in">
                 <ResponsiveContainer width="100%" height={300}>
-                  <ComposedChart data={cumData}>
+                  <AreaChart data={cumBaseData}>
                     <defs>
-                      <linearGradient id="fillGreen" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="hsl(var(--chart-green))" stopOpacity={0.4} />
-                        <stop offset="100%" stopColor="hsl(var(--chart-green))" stopOpacity={0.05} />
+                      <linearGradient id="cumSplitFill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset={0} stopColor="hsl(var(--chart-green))" stopOpacity={0.4} />
+                        <stop offset={gradientOffset} stopColor="hsl(var(--chart-green))" stopOpacity={0.1} />
+                        <stop offset={gradientOffset} stopColor="hsl(var(--primary))" stopOpacity={0.1} />
+                        <stop offset={1} stopColor="hsl(var(--primary))" stopOpacity={0.4} />
                       </linearGradient>
-                      <linearGradient id="fillPurple" x1="0" y1="1" x2="0" y2="0">
-                        <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.4} />
-                        <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.05} />
+                      <linearGradient id="cumSplitStroke" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset={gradientOffset} stopColor="hsl(var(--chart-green))" stopOpacity={1} />
+                        <stop offset={gradientOffset} stopColor="hsl(var(--primary))" stopOpacity={1} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis
-                      type="number"
-                      dataKey="x"
-                      ticks={cumTicks}
-                      domain={['dataMin', 'dataMax']}
-                      stroke="hsl(var(--muted-foreground))"
-                      fontSize={11}
-                      tickFormatter={(value) => cumBaseData[Math.round(value)]?.date ?? ''}
-                    />
+                    <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={11} />
                     <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={(v) => `$${v}`} />
                     <Tooltip
                       contentStyle={tooltipStyle}
-                      labelFormatter={(value) => cumBaseData[Math.round(Number(value))]?.date ?? ''}
-                      formatter={(_, __, item) => [`$${Number(item.payload?.pnl ?? 0).toFixed(2)}`, 'Cumulative P&L']}
+                      formatter={(v: number) => [`$${v.toFixed(2)}`, 'Cumulative P&L']}
                     />
-                    <Area type="linear" dataKey="positive" stroke="none" fill="url(#fillGreen)" baseValue={0} isAnimationActive={false} connectNulls={false} />
-                    <Area type="linear" dataKey="negative" stroke="none" fill="url(#fillPurple)" baseValue={0} isAnimationActive={false} connectNulls={false} />
-                    <Line type="linear" dataKey="positive" stroke="hsl(var(--chart-green))" strokeWidth={2} dot={false} isAnimationActive={false} connectNulls={false} activeDot={{ r: 4 }} />
-                    <Line type="linear" dataKey="negative" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} isAnimationActive={false} connectNulls={false} activeDot={{ r: 4 }} />
-                  </ComposedChart>
+                    <Area type="monotone" dataKey="pnl" stroke="url(#cumSplitStroke)" strokeWidth={2} fill="url(#cumSplitFill)" isAnimationActive={false} />
+                  </AreaChart>
                 </ResponsiveContainer>
               </div>
             ) : <p className="text-muted-foreground text-sm text-center py-12">No closed trades yet</p>}
@@ -393,11 +341,11 @@ export default function Dashboard() {
           </div>
         )}
 
-        {has('equity-curve') && cumData.length > 0 && (
+        {has('equity-curve') && cumBaseData.length > 0 && (
           <div className="rounded-xl border border-border bg-card p-5">
             <h3 className="text-sm font-semibold mb-4 text-muted-foreground uppercase tracking-wider">Equity Curve</h3>
             <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={cumData}>
+              <LineChart data={cumBaseData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={11} />
                 <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={(v) => `$${v}`} />
