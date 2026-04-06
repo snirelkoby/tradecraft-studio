@@ -130,6 +130,16 @@ export default function MindsetJournal() {
     });
   }, [history, allTrades]);
 
+  const tradeDates = useMemo(() => {
+    const dates = new Set<string>();
+    (allTrades ?? []).forEach(t => dates.add(t.entry_date.slice(0, 10)));
+    return dates;
+  }, [allTrades]);
+
+  const selectDay = (day: Date) => {
+    setCurrentDate(format(day, 'yyyy-MM-dd'));
+  };
+
   const shiftDate = (dir: number) => {
     const d = new Date(currentDate);
     d.setDate(d.getDate() + dir);
