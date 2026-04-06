@@ -6,7 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import { toast } from 'sonner';
-import { format, subDays, parseISO } from 'date-fns';
+import {
+  format, subDays, parseISO, startOfMonth, endOfMonth, startOfWeek, endOfWeek,
+  eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths
+} from 'date-fns';
 import { Brain, Zap, Eye, ChevronLeft, ChevronRight, Save } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 
@@ -27,12 +30,38 @@ export default function MindsetJournal() {
   const { user } = useAuth();
   const { data: allTrades } = useTrades();
   const [currentDate, setCurrentDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [currentMonth, setCurrentMonth] = useState(new Date());
   const [entry, setEntry] = useState<MindsetEntry>({
     date: currentDate, energy_level: 5, focus_level: 5, confidence_level: 5,
     mood: '😐 Neutral', pre_session_notes: '', post_session_notes: '',
   });
   const [loading, setLoading] = useState(true);
   const [history, setHistory] = useState<any[]>([]);
+  const [entryDates, setEntryDates] = useState<Set<string>>(new Set());
+
+  // Calendar grid
+  const calendarDays = useMemo(() => {
+    const monthStart = startOfMonth(currentMonth);
+    const monthEnd = endOfMonth(currentMonth);
+    const calStart = startOfWeek(monthStart, { weekStartsOn: 0 });
+    const calEnd = endOfWeek(monthEnd, { weekStartsOn: 0 });
+    return eachDayOfInterval({ start: calStart, end: calEnd });
+  }, [currentMonth]);
+
+  const DAY_HEADERS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  // Load entry dates for the visible month
+  useEffect(() => {
+    if (!user) return;
+    const loadEntryDates = async () => {
+      const monthStart = format(startOfWeek(startOfMonth(currentMonth), { weekStartsOn: 0 }), 'yyyy-MM-dd');
+      const monthEnd = format(endOfWeek(endOfMonth(currentMonth), { weekStartsOn: 0 }), 'yyyy-MM-dd');
+      const { data } = await supabase.from('mindset_entries').select('date')
+        .gte('date', monthStart).lte('date', monthEnd);
+      setEntryDates(new Set((data ?? []).map(d => d.date)));
+    };
+    loadEntryDates();
+  }, [user, currentMonth]);
 
   useEffect(() => {
     if (!user) return;
@@ -101,6 +130,16 @@ export default function MindsetJournal() {
     });
   }, [history, allTrades]);
 
+  const tradeDates = useMemo(() => {
+    const dates = new Set<string>();
+    (allTrades ?? []).forEach(t => dates.add(t.entry_date.slice(0, 10)));
+    return dates;
+  }, [allTrades]);
+
+  const selectDay = (day: Date) => {
+    setCurrentDate(format(day, 'yyyy-MM-dd'));
+  };
+
   const shiftDate = (dir: number) => {
     const d = new Date(currentDate);
     d.setDate(d.getDate() + dir);
@@ -125,6 +164,56 @@ export default function MindsetJournal() {
           <Button variant="ghost" size="icon" onClick={() => shiftDate(-1)}><ChevronLeft className="h-4 w-4" /></Button>
           <span className="font-mono font-bold text-lg min-w-[120px] text-center">{currentDate}</span>
           <Button variant="ghost" size="icon" onClick={() => shiftDate(1)}><ChevronRight className="h-4 w-4" /></Button>
+        </div>
+      </div>
+
+      {/* Calendar Grid */}
+      <div className="rounded-xl border border-border bg-card overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-secondary/30">
+          <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <span className="font-mono font-semibold text-sm">{format(currentMonth, 'MMMM yyyy')}</span>
+          <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+        <div className="grid grid-cols-7">
+          {DAY_HEADERS.map(d => (
+            <div key={d} className="text-center text-[10px] font-semibold text-muted-foreground py-1.5 border-b border-border">{d}</div>
+          ))}
+          {calendarDays.map((day, i) => {
+            const ds = format(day, 'yyyy-MM-dd');
+            const inMonth = isSameMonth(day, currentMonth);
+            const isSelected = ds === currentDate;
+            const isToday = isSameDay(day, new Date());
+            const hasEntry = entryDates.has(ds);
+            const hasTrade = tradeDates.has(ds);
+
+            return (
+              <button
+                key={i}
+                onClick={() => selectDay(day)}
+                className={`relative p-1 min-h-[44px] border-b border-r border-border transition-colors text-center
+                  ${!inMonth ? 'opacity-25' : ''}
+                  ${isSelected ? 'bg-primary/15 ring-1 ring-primary ring-inset' : ''}
+                  ${hasEntry ? 'bg-[hsl(var(--chart-green))]/10' : ''}
+                  hover:bg-accent/50`}
+              >
+                <span className={`text-xs ${isToday ? 'bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center mx-auto' : ''}`}>
+                  {format(day, 'd')}
+                </span>
+                <div className="flex justify-center gap-0.5 mt-0.5">
+                  {hasEntry && <div className="w-1 h-1 rounded-full bg-[hsl(var(--chart-green))]" />}
+                  {hasTrade && <div className="w-1 h-1 rounded-full bg-[hsl(var(--chart-blue))]" />}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex gap-4 px-4 py-1.5 text-[10px] text-muted-foreground border-t border-border">
+          <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--chart-green))]" />Journal entry</div>
+          <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--chart-blue))]" />Trade day</div>
         </div>
       </div>
 

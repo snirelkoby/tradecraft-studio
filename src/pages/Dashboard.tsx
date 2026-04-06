@@ -218,12 +218,12 @@ export default function Dashboard() {
                       <linearGradient id="cumSplitFill" x1="0" y1="0" x2="0" y2="1">
                         <stop offset={0} stopColor="hsl(var(--chart-green))" stopOpacity={0.4} />
                         <stop offset={gradientOffset} stopColor="hsl(var(--chart-green))" stopOpacity={0.1} />
-                        <stop offset={gradientOffset} stopColor="hsl(var(--primary))" stopOpacity={0.1} />
-                        <stop offset={1} stopColor="hsl(var(--primary))" stopOpacity={0.4} />
+                        <stop offset={gradientOffset} stopColor="hsl(var(--chart-red))" stopOpacity={0.1} />
+                        <stop offset={1} stopColor="hsl(var(--chart-red))" stopOpacity={0.4} />
                       </linearGradient>
                       <linearGradient id="cumSplitStroke" x1="0" y1="0" x2="0" y2="1">
                         <stop offset={gradientOffset} stopColor="hsl(var(--chart-green))" stopOpacity={1} />
-                        <stop offset={gradientOffset} stopColor="hsl(var(--primary))" stopOpacity={1} />
+                        <stop offset={gradientOffset} stopColor="hsl(var(--chart-red))" stopOpacity={1} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
