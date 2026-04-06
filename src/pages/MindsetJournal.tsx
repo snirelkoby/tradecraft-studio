@@ -30,12 +30,38 @@ export default function MindsetJournal() {
   const { user } = useAuth();
   const { data: allTrades } = useTrades();
   const [currentDate, setCurrentDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [currentMonth, setCurrentMonth] = useState(new Date());
   const [entry, setEntry] = useState<MindsetEntry>({
     date: currentDate, energy_level: 5, focus_level: 5, confidence_level: 5,
     mood: '😐 Neutral', pre_session_notes: '', post_session_notes: '',
   });
   const [loading, setLoading] = useState(true);
   const [history, setHistory] = useState<any[]>([]);
+  const [entryDates, setEntryDates] = useState<Set<string>>(new Set());
+
+  // Calendar grid
+  const calendarDays = useMemo(() => {
+    const monthStart = startOfMonth(currentMonth);
+    const monthEnd = endOfMonth(currentMonth);
+    const calStart = startOfWeek(monthStart, { weekStartsOn: 0 });
+    const calEnd = endOfWeek(monthEnd, { weekStartsOn: 0 });
+    return eachDayOfInterval({ start: calStart, end: calEnd });
+  }, [currentMonth]);
+
+  const DAY_HEADERS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  // Load entry dates for the visible month
+  useEffect(() => {
+    if (!user) return;
+    const loadEntryDates = async () => {
+      const monthStart = format(startOfWeek(startOfMonth(currentMonth), { weekStartsOn: 0 }), 'yyyy-MM-dd');
+      const monthEnd = format(endOfWeek(endOfMonth(currentMonth), { weekStartsOn: 0 }), 'yyyy-MM-dd');
+      const { data } = await supabase.from('mindset_entries').select('date')
+        .gte('date', monthStart).lte('date', monthEnd);
+      setEntryDates(new Set((data ?? []).map(d => d.date)));
+    };
+    loadEntryDates();
+  }, [user, currentMonth]);
 
   useEffect(() => {
     if (!user) return;
