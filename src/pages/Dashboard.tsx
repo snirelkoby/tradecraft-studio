@@ -10,8 +10,8 @@ import { StreakAlerts } from '@/components/dashboard/StreakAlerts';
 import { PositionSizerWidget } from '@/components/dashboard/PositionSizerWidget';
 import { QuickStatsWidget } from '@/components/dashboard/QuickStatsWidget';
 import {
-  Area, CartesianGrid, XAxis, YAxis, Tooltip,
-  ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, ComposedChart
+  AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip,
+  ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, LineChart, Line
 } from 'recharts';
 import { format, parseISO } from 'date-fns';
 import { Button } from '@/components/ui/button';
