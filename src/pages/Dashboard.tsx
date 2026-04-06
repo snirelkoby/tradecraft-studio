@@ -341,11 +341,11 @@ export default function Dashboard() {
           </div>
         )}
 
-        {has('equity-curve') && cumData.length > 0 && (
+        {has('equity-curve') && cumBaseData.length > 0 && (
           <div className="rounded-xl border border-border bg-card p-5">
             <h3 className="text-sm font-semibold mb-4 text-muted-foreground uppercase tracking-wider">Equity Curve</h3>
             <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={cumData}>
+              <LineChart data={cumBaseData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={11} />
                 <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={(v) => `$${v}`} />
