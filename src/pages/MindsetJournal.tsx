@@ -75,15 +75,27 @@ export default function MindsetJournal() {
     let journalDays = 0;
     let tradeDaysCount = 0;
     let tradedNoJournal = 0;
+    let weeklyPnl = 0;
+    let weeklyWins = 0;
+    let weeklyLosses = 0;
     currentWeekDays.forEach(d => {
       const hasJ = entryDates.has(d);
       const hasT = tradeDates.has(d);
       if (hasJ) journalDays++;
       if (hasT) tradeDaysCount++;
       if (hasT && !hasJ) tradedNoJournal++;
+      // Sum PnL for closed trades on this day
+      (allTrades ?? []).filter(t => t.status === 'closed' && t.entry_date.slice(0, 10) === d).forEach(t => {
+        const pnl = t.pnl ?? 0;
+        weeklyPnl += pnl;
+        if (pnl > 0) weeklyWins++;
+        else if (pnl < 0) weeklyLosses++;
+      });
     });
-    return { journalDays, tradeDaysCount, tradedNoJournal };
-  }, [currentWeekDays, entryDates, tradeDates]);
+    const totalTrades = weeklyWins + weeklyLosses;
+    const winRate = totalTrades > 0 ? (weeklyWins / totalTrades) * 100 : 0;
+    return { journalDays, tradeDaysCount, tradedNoJournal, weeklyPnl, weeklyWins, weeklyLosses, totalTrades, winRate };
+  }, [currentWeekDays, entryDates, tradeDates, allTrades]);
 
   // Load entry dates for the visible month
   useEffect(() => {
@@ -287,7 +299,7 @@ export default function MindsetJournal() {
             סיכום שבועי — {format(currentWeekStart, 'dd/MM')} - {format(endOfWeek(currentWeekStart, { weekStartsOn: 0 }), 'dd/MM')}
           </h3>
         </div>
-        <div className="grid grid-cols-3 gap-3 mb-4">
+        <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mb-4">
           <div className="rounded-lg bg-secondary p-3 text-center">
             <div className="text-2xl font-black font-mono text-[hsl(var(--chart-green))]">{weeklyStats.journalDays}</div>
             <div className="text-[10px] text-muted-foreground uppercase mt-1">ימי יומן</div>
@@ -300,7 +312,23 @@ export default function MindsetJournal() {
             <div className={`text-2xl font-black font-mono ${weeklyStats.tradedNoJournal > 0 ? 'text-destructive' : 'text-[hsl(var(--chart-green))]'}`}>
               {weeklyStats.tradedNoJournal}
             </div>
-            <div className="text-[10px] text-muted-foreground uppercase mt-1">סחרתי בלי יומן</div>
+            <div className="text-[10px] text-muted-foreground uppercase mt-1">בלי יומן</div>
+          </div>
+          <div className="rounded-lg bg-secondary p-3 text-center">
+            <div className={`text-2xl font-black font-mono ${weeklyStats.weeklyPnl >= 0 ? 'text-[hsl(var(--chart-green))]' : 'text-destructive'}`}>
+              ${weeklyStats.weeklyPnl.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+            </div>
+            <div className="text-[10px] text-muted-foreground uppercase mt-1">P&L שבועי</div>
+          </div>
+          <div className="rounded-lg bg-secondary p-3 text-center">
+            <div className="text-2xl font-black font-mono text-foreground">{weeklyStats.totalTrades}</div>
+            <div className="text-[10px] text-muted-foreground uppercase mt-1">עסקאות</div>
+          </div>
+          <div className="rounded-lg bg-secondary p-3 text-center">
+            <div className={`text-2xl font-black font-mono ${weeklyStats.winRate >= 50 ? 'text-[hsl(var(--chart-green))]' : 'text-destructive'}`}>
+              {weeklyStats.winRate.toFixed(0)}%
+            </div>
+            <div className="text-[10px] text-muted-foreground uppercase mt-1">Win Rate</div>
           </div>
         </div>
 
