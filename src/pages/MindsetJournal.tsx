@@ -155,16 +155,9 @@ export default function MindsetJournal() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Daily Journal</h1>
-          <p className="text-muted-foreground text-sm">יומן יומי — מעקב אנרגיה, ריכוז, מצב רוח ותובנות</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" onClick={() => shiftDate(-1)}><ChevronLeft className="h-4 w-4" /></Button>
-          <span className="font-mono font-bold text-lg min-w-[120px] text-center">{currentDate}</span>
-          <Button variant="ghost" size="icon" onClick={() => shiftDate(1)}><ChevronRight className="h-4 w-4" /></Button>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Daily Journal</h1>
+        <p className="text-muted-foreground text-sm">יומן יומי — מעקב אנרגיה, ריכוז, מצב רוח ותובנות</p>
       </div>
 
       {/* Calendar Grid */}
@@ -190,32 +183,42 @@ export default function MindsetJournal() {
             const hasEntry = entryDates.has(ds);
             const hasTrade = tradeDates.has(ds);
 
+            // Color logic:
+            // green = has journal (with or without trade)
+            // red = traded but no journal
+            // gray = nothing
+            let bgClass = '';
+            if (hasEntry) {
+              bgClass = 'bg-[hsl(var(--chart-green))]/15';
+            } else if (hasTrade) {
+              bgClass = 'bg-destructive/15';
+            }
+
             return (
               <button
                 key={i}
                 onClick={() => selectDay(day)}
                 className={`relative p-1 min-h-[44px] border-b border-r border-border transition-colors text-center
-                  ${!inMonth ? 'opacity-25' : ''}
-                  ${isSelected ? 'bg-primary/15 ring-1 ring-primary ring-inset' : ''}
-                  ${hasEntry ? 'bg-[hsl(var(--chart-green))]/10' : ''}
+                  ${!inMonth ? 'opacity-25' : bgClass}
+                  ${isSelected ? 'ring-2 ring-primary ring-inset' : ''}
                   hover:bg-accent/50`}
               >
                 <span className={`text-xs ${isToday ? 'bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center mx-auto' : ''}`}>
                   {format(day, 'd')}
                 </span>
-                <div className="flex justify-center gap-0.5 mt-0.5">
-                  {hasEntry && <div className="w-1 h-1 rounded-full bg-[hsl(var(--chart-green))]" />}
-                  {hasTrade && <div className="w-1 h-1 rounded-full bg-[hsl(var(--chart-blue))]" />}
-                </div>
               </button>
             );
           })}
         </div>
         <div className="flex gap-4 px-4 py-1.5 text-[10px] text-muted-foreground border-t border-border">
-          <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--chart-green))]" />Journal entry</div>
-          <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--chart-blue))]" />Trade day</div>
+          <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--chart-green))]" />כתבתי ביומן</div>
+          <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-destructive" />סחרתי בלי יומן</div>
+          <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/30" />לא סחרתי ולא כתבתי</div>
         </div>
       </div>
+
+      {/* Selected date label */}
+      <div className="text-center font-mono font-bold text-lg">{currentDate}</div>
 
       {/* Levels */}
       <div className="grid md:grid-cols-3 gap-4">
