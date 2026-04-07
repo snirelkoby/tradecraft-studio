@@ -10,7 +10,7 @@ import {
   format, subDays, parseISO, startOfMonth, endOfMonth, startOfWeek, endOfWeek,
   eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths
 } from 'date-fns';
-import { Brain, Zap, Eye, ChevronLeft, ChevronRight, Save } from 'lucide-react';
+import { Brain, Zap, Eye, ChevronLeft, ChevronRight, Save, BookOpen, TrendingUp } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 
 const MOODS = ['😤 Frustrated', '😰 Anxious', '😐 Neutral', '🙂 Calm', '🔥 In the Zone'];
@@ -38,6 +38,8 @@ export default function MindsetJournal() {
   const [loading, setLoading] = useState(true);
   const [history, setHistory] = useState<any[]>([]);
   const [entryDates, setEntryDates] = useState<Set<string>>(new Set());
+  const [weeklySummary, setWeeklySummary] = useState('');
+  const [weeklySummaryId, setWeeklySummaryId] = useState<string | null>(null);
 
   // Calendar grid
   const calendarDays = useMemo(() => {
@@ -49,6 +51,39 @@ export default function MindsetJournal() {
   }, [currentMonth]);
 
   const DAY_HEADERS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  // Current week range (Sun-Sat) for the selected date
+  const currentWeekStart = useMemo(() => {
+    return startOfWeek(parseISO(currentDate), { weekStartsOn: 0 });
+  }, [currentDate]);
+
+  const currentWeekDays = useMemo(() => {
+    return eachDayOfInterval({
+      start: currentWeekStart,
+      end: endOfWeek(currentWeekStart, { weekStartsOn: 0 }),
+    }).map(d => format(d, 'yyyy-MM-dd'));
+  }, [currentWeekStart]);
+
+  const tradeDates = useMemo(() => {
+    const dates = new Set<string>();
+    (allTrades ?? []).forEach(t => dates.add(t.entry_date.slice(0, 10)));
+    return dates;
+  }, [allTrades]);
+
+  // Weekly stats
+  const weeklyStats = useMemo(() => {
+    let journalDays = 0;
+    let tradeDaysCount = 0;
+    let tradedNoJournal = 0;
+    currentWeekDays.forEach(d => {
+      const hasJ = entryDates.has(d);
+      const hasT = tradeDates.has(d);
+      if (hasJ) journalDays++;
+      if (hasT) tradeDaysCount++;
+      if (hasT && !hasJ) tradedNoJournal++;
+    });
+    return { journalDays, tradeDaysCount, tradedNoJournal };
+  }, [currentWeekDays, entryDates, tradeDates]);
 
   // Load entry dates for the visible month
   useEffect(() => {
@@ -68,6 +103,24 @@ export default function MindsetJournal() {
     loadEntry();
     loadHistory();
   }, [user, currentDate]);
+
+  // Load weekly summary when week changes
+  useEffect(() => {
+    if (!user) return;
+    const weekStartStr = format(currentWeekStart, 'yyyy-MM-dd');
+    const loadWeeklySummary = async () => {
+      const { data } = await supabase.from('weekly_summaries').select('*')
+        .eq('week_start', weekStartStr).maybeSingle();
+      if (data) {
+        setWeeklySummary(data.summary ?? '');
+        setWeeklySummaryId(data.id);
+      } else {
+        setWeeklySummary('');
+        setWeeklySummaryId(null);
+      }
+    };
+    loadWeeklySummary();
+  }, [user, currentWeekStart]);
 
   const loadEntry = async () => {
     setLoading(true);
@@ -114,6 +167,28 @@ export default function MindsetJournal() {
     toast.success('Saved');
     loadEntry();
     loadHistory();
+    // Refresh entry dates for calendar colors
+    const monthStart = format(startOfWeek(startOfMonth(currentMonth), { weekStartsOn: 0 }), 'yyyy-MM-dd');
+    const monthEnd = format(endOfWeek(endOfMonth(currentMonth), { weekStartsOn: 0 }), 'yyyy-MM-dd');
+    const { data: refreshed } = await supabase.from('mindset_entries').select('date')
+      .gte('date', monthStart).lte('date', monthEnd);
+    setEntryDates(new Set((refreshed ?? []).map(d => d.date)));
+  };
+
+  const saveWeeklySummary = async () => {
+    if (!user) return;
+    const weekStartStr = format(currentWeekStart, 'yyyy-MM-dd');
+    if (weeklySummaryId) {
+      const { error } = await supabase.from('weekly_summaries')
+        .update({ summary: weeklySummary } as any).eq('id', weeklySummaryId);
+      if (error) return toast.error(error.message);
+    } else {
+      const { error } = await supabase.from('weekly_summaries').insert({
+        user_id: user.id, week_start: weekStartStr, summary: weeklySummary,
+      } as any);
+      if (error) return toast.error(error.message);
+    }
+    toast.success('Weekly summary saved');
   };
 
   // Correlation with P&L
@@ -130,26 +205,17 @@ export default function MindsetJournal() {
     });
   }, [history, allTrades]);
 
-  const tradeDates = useMemo(() => {
-    const dates = new Set<string>();
-    (allTrades ?? []).forEach(t => dates.add(t.entry_date.slice(0, 10)));
-    return dates;
-  }, [allTrades]);
-
   const selectDay = (day: Date) => {
     setCurrentDate(format(day, 'yyyy-MM-dd'));
-  };
-
-  const shiftDate = (dir: number) => {
-    const d = new Date(currentDate);
-    d.setDate(d.getDate() + dir);
-    setCurrentDate(format(d, 'yyyy-MM-dd'));
   };
 
   const tooltipStyle = {
     background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))',
     borderRadius: 8, color: 'hsl(var(--foreground))',
   };
+
+  // Check if selected day is Saturday
+  const isSaturday = parseISO(currentDate).getDay() === 6;
 
   if (loading) return <div className="text-muted-foreground text-center py-12">Loading...</div>;
 
@@ -183,10 +249,6 @@ export default function MindsetJournal() {
             const hasEntry = entryDates.has(ds);
             const hasTrade = tradeDates.has(ds);
 
-            // Color logic:
-            // green = has journal (with or without trade)
-            // red = traded but no journal
-            // gray = nothing
             let bgClass = '';
             if (hasEntry) {
               bgClass = 'bg-[hsl(var(--chart-green))]/15';
@@ -214,6 +276,51 @@ export default function MindsetJournal() {
           <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--chart-green))]" />כתבתי ביומן</div>
           <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-destructive" />סחרתי בלי יומן</div>
           <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/30" />לא סחרתי ולא כתבתי</div>
+        </div>
+      </div>
+
+      {/* Weekly Summary Bar */}
+      <div className="rounded-xl border border-border bg-card p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase flex items-center gap-2">
+            <BookOpen className="h-4 w-4" />
+            סיכום שבועי — {format(currentWeekStart, 'dd/MM')} - {format(endOfWeek(currentWeekStart, { weekStartsOn: 0 }), 'dd/MM')}
+          </h3>
+        </div>
+        <div className="grid grid-cols-3 gap-3 mb-4">
+          <div className="rounded-lg bg-secondary p-3 text-center">
+            <div className="text-2xl font-black font-mono text-[hsl(var(--chart-green))]">{weeklyStats.journalDays}</div>
+            <div className="text-[10px] text-muted-foreground uppercase mt-1">ימי יומן</div>
+          </div>
+          <div className="rounded-lg bg-secondary p-3 text-center">
+            <div className="text-2xl font-black font-mono text-[hsl(var(--chart-blue))]">{weeklyStats.tradeDaysCount}</div>
+            <div className="text-[10px] text-muted-foreground uppercase mt-1">ימי מסחר</div>
+          </div>
+          <div className="rounded-lg bg-secondary p-3 text-center">
+            <div className={`text-2xl font-black font-mono ${weeklyStats.tradedNoJournal > 0 ? 'text-destructive' : 'text-[hsl(var(--chart-green))]'}`}>
+              {weeklyStats.tradedNoJournal}
+            </div>
+            <div className="text-[10px] text-muted-foreground uppercase mt-1">סחרתי בלי יומן</div>
+          </div>
+        </div>
+
+        {/* Weekly reflection textarea - prominent on Saturday */}
+        <div className={`space-y-2 ${isSaturday ? 'ring-2 ring-primary/30 rounded-lg p-3 bg-primary/5' : ''}`}>
+          {isSaturday && (
+            <div className="text-xs font-semibold text-primary flex items-center gap-1 mb-1">
+              <TrendingUp className="h-3.5 w-3.5" /> שבת — זמן לסיכום שבועי!
+            </div>
+          )}
+          <label className="text-xs text-muted-foreground uppercase block">מה למדתי השבוע? תובנות, שיפורים, מה לשמור/לשנות</label>
+          <Textarea
+            value={weeklySummary}
+            onChange={e => setWeeklySummary(e.target.value)}
+            placeholder="מה עבד טוב? מה לשפר? מה הלקחים מהשבוע?"
+            className="bg-secondary min-h-[100px]"
+          />
+          <Button onClick={saveWeeklySummary} size="sm" variant="outline" className="font-bold">
+            <Save className="h-3.5 w-3.5 mr-1" /> שמור סיכום שבועי
+          </Button>
         </div>
       </div>
 
