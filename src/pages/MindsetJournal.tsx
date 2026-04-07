@@ -75,15 +75,27 @@ export default function MindsetJournal() {
     let journalDays = 0;
     let tradeDaysCount = 0;
     let tradedNoJournal = 0;
+    let weeklyPnl = 0;
+    let weeklyWins = 0;
+    let weeklyLosses = 0;
     currentWeekDays.forEach(d => {
       const hasJ = entryDates.has(d);
       const hasT = tradeDates.has(d);
       if (hasJ) journalDays++;
       if (hasT) tradeDaysCount++;
       if (hasT && !hasJ) tradedNoJournal++;
+      // Sum PnL for closed trades on this day
+      (allTrades ?? []).filter(t => t.status === 'closed' && t.entry_date.slice(0, 10) === d).forEach(t => {
+        const pnl = t.pnl ?? 0;
+        weeklyPnl += pnl;
+        if (pnl > 0) weeklyWins++;
+        else if (pnl < 0) weeklyLosses++;
+      });
     });
-    return { journalDays, tradeDaysCount, tradedNoJournal };
-  }, [currentWeekDays, entryDates, tradeDates]);
+    const totalTrades = weeklyWins + weeklyLosses;
+    const winRate = totalTrades > 0 ? (weeklyWins / totalTrades) * 100 : 0;
+    return { journalDays, tradeDaysCount, tradedNoJournal, weeklyPnl, weeklyWins, weeklyLosses, totalTrades, winRate };
+  }, [currentWeekDays, entryDates, tradeDates, allTrades]);
 
   // Load entry dates for the visible month
   useEffect(() => {
