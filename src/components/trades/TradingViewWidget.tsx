@@ -21,9 +21,11 @@ interface TradingViewWidgetProps {
   exitDate?: string | null;
   direction?: string;
   tradeId?: string;
+  stopLoss?: number | null;
+  takeProfit?: number | null;
 }
 
-export function TradingViewWidget({ symbol, assetType, entryPrice, exitPrice, entryDate, exitDate, direction, tradeId }: TradingViewWidgetProps) {
+export function TradingViewWidget({ symbol, assetType, entryPrice, exitPrice, entryDate, exitDate, direction, tradeId, stopLoss, takeProfit }: TradingViewWidgetProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   const { data: executions } = useQuery({

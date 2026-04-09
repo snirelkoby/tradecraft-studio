@@ -347,6 +347,8 @@ export function TradeDetail({ trade, open, onOpenChange, trades, onTradeChange }
               exitDate={trade.exit_date}
               direction={trade.direction}
               tradeId={trade.id}
+              stopLoss={trade.stop_loss}
+              takeProfit={trade.take_profit}
             />
 
             <Tabs defaultValue="notes">
