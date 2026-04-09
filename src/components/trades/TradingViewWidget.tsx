@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { getTradingViewSymbol } from '@/lib/symbolMapping';
-import { format, parseISO } from 'date-fns';
+import { parseISO } from 'date-fns';
 
 interface Execution {
   id: string;
