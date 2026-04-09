@@ -202,6 +202,21 @@ export function TradingViewWidget({ symbol, assetType, entryPrice, exitPrice, en
               </div>
             );
           })}
+          {/* SL / TP markers */}
+          {stopLoss != null && (
+            <div className="flex items-center gap-1.5">
+              <span className="text-base" style={{ color: 'hsl(var(--chart-red))' }}>━</span>
+              <span className="text-muted-foreground">SL:</span>
+              <span className="font-mono font-bold text-[hsl(var(--chart-red))]">${stopLoss}</span>
+            </div>
+          )}
+          {takeProfit != null && (
+            <div className="flex items-center gap-1.5">
+              <span className="text-base" style={{ color: 'hsl(var(--chart-green))' }}>━</span>
+              <span className="text-muted-foreground">TP:</span>
+              <span className="font-mono font-bold text-[hsl(var(--chart-green))]">${takeProfit}</span>
+            </div>
+          )}
           {direction && (
             <div className={`ml-auto font-bold uppercase`} style={{ color: isLong ? 'hsl(var(--chart-green))' : 'hsl(var(--primary))' }}>
               {direction}
