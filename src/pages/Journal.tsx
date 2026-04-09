@@ -355,6 +355,11 @@ Win rate: ${weekTrades.filter(t => (t.pnl ?? 0) > 0).length}/${weekTrades.filter
         <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
           <ChevronRight className="h-4 w-4" />
         </Button>
+        <div className="ml-auto">
+          <Button variant="outline" size="sm" onClick={exportJournal}>
+            <Download className="h-4 w-4 mr-1" />Export Month
+          </Button>
+        </div>
       </div>
 
       {/* Legend */}
