@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Sparkles, Download } from 'lucide-react';
 import {
   format, parseISO, startOfMonth, endOfMonth, startOfWeek, endOfWeek,
   eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths,
@@ -244,6 +244,90 @@ Win rate: ${weekTrades.filter(t => (t.pnl ?? 0) > 0).length}/${weekTrades.filter
     }
   };
 
+  const exportJournal = useCallback(() => {
+    const monthStr = format(currentMonth, 'MMMM yyyy');
+    const entries = journalEntries.sort((a, b) => a.date.localeCompare(b.date));
+    
+    let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Trading Journal - ${monthStr}</title>
+    <style>
+      body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; color: #222; }
+      h1 { text-align: center; border-bottom: 2px solid #333; padding-bottom: 10px; }
+      .entry { page-break-inside: avoid; border: 1px solid #ddd; border-radius: 8px; padding: 16px; margin-bottom: 20px; }
+      .entry-date { font-size: 18px; font-weight: bold; margin-bottom: 8px; color: #1a1a2e; }
+      .section { margin-bottom: 12px; }
+      .section-title { font-size: 12px; text-transform: uppercase; color: #666; margin-bottom: 4px; font-weight: bold; }
+      .section-content { white-space: pre-wrap; line-height: 1.6; }
+      .mood-badge { display: inline-block; background: #f0f0f0; padding: 2px 10px; border-radius: 12px; font-size: 13px; }
+      .trades-table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 13px; }
+      .trades-table th, .trades-table td { border: 1px solid #ddd; padding: 6px 10px; text-align: left; }
+      .trades-table th { background: #f5f5f5; }
+      .pnl-pos { color: #16a34a; font-weight: bold; }
+      .pnl-neg { color: #dc2626; font-weight: bold; }
+      .screenshot { max-width: 100%; border-radius: 6px; margin-top: 8px; }
+      .weekly-summary { background: #f8f9fa; border-left: 4px solid #4f46e5; padding: 12px; margin-bottom: 20px; border-radius: 4px; }
+      .stats-row { display: flex; gap: 16px; margin-bottom: 8px; }
+      .stat { background: #f0f0f0; padding: 8px 12px; border-radius: 6px; }
+      .stat-label { font-size: 10px; text-transform: uppercase; color: #888; }
+      .stat-value { font-weight: bold; font-family: monospace; }
+      @media print { .entry { break-inside: avoid; } }
+    </style></head><body>
+    <h1>📓 Trading Journal — ${monthStr}</h1>`;
+
+    // Add weekly summaries
+    Object.entries(weeklySummaries).filter(([_, v]) => v).forEach(([weekStart, summary]) => {
+      html += `<div class="weekly-summary"><strong>Week of ${weekStart}:</strong> ${summary}</div>`;
+    });
+
+    entries.forEach(j => {
+      const dayTradesForEntry = (allTrades ?? []).filter(t => t.entry_date?.slice(0, 10) === j.date);
+      const dayPnlVal = dayTradesForEntry.filter(t => t.status === 'closed' && t.pnl != null).reduce((s, t) => s + (t.pnl ?? 0), 0);
+      
+      html += `<div class="entry">`;
+      html += `<div class="entry-date">${j.date}</div>`;
+      if (j.mood) html += `<div class="mood-badge">${j.mood}</div>`;
+      
+      if (j.pre_market_notes) {
+        html += `<div class="section"><div class="section-title">Pre-Market Notes</div><div class="section-content">${j.pre_market_notes}</div></div>`;
+      }
+      if (j.post_market_notes) {
+        html += `<div class="section"><div class="section-title">Post-Market Review</div><div class="section-content">${j.post_market_notes}</div></div>`;
+      }
+      if (j.lessons) {
+        html += `<div class="section"><div class="section-title">Lessons Learned</div><div class="section-content">${j.lessons}</div></div>`;
+      }
+
+      if (dayTradesForEntry.length > 0) {
+        html += `<div class="section"><div class="section-title">Trades (${dayTradesForEntry.length}) — P&L: <span class="${dayPnlVal >= 0 ? 'pnl-pos' : 'pnl-neg'}">$${dayPnlVal.toFixed(2)}</span></div>`;
+        html += `<table class="trades-table"><tr><th>Symbol</th><th>Direction</th><th>Entry</th><th>Exit</th><th>P&L</th><th>Strategy</th></tr>`;
+        dayTradesForEntry.forEach(t => {
+          const pnlClass = (t.pnl ?? 0) >= 0 ? 'pnl-pos' : 'pnl-neg';
+          html += `<tr><td>${t.symbol}</td><td>${t.direction}</td><td>$${t.entry_price}</td><td>${t.exit_price != null ? '$' + t.exit_price : 'Open'}</td><td class="${pnlClass}">${t.pnl != null ? '$' + t.pnl.toFixed(2) : '—'}</td><td>${t.strategy ?? '—'}</td></tr>`;
+        });
+        html += `</table>`;
+        
+        // Add screenshots
+        dayTradesForEntry.filter(t => t.screenshot_url).forEach(t => {
+          html += `<img class="screenshot" src="${t.screenshot_url}" alt="${t.symbol} trade screenshot" />`;
+        });
+        html += `</div>`;
+      }
+
+      html += `</div>`;
+    });
+
+    html += `</body></html>`;
+
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const win = window.open(url, '_blank');
+    if (win) {
+      win.onload = () => {
+        setTimeout(() => win.print(), 500);
+      };
+    }
+    toast.success('Journal export opened — use Print to save as PDF');
+  }, [currentMonth, journalEntries, weeklySummaries, allTrades]);
+
   const SliderRow = ({ label, value, onChange, emoji }: { label: string; value: number; onChange: (v: number) => void; emoji: string }) => (
     <div className="flex items-center gap-3">
       <span className="text-lg">{emoji}</span>
@@ -271,6 +355,11 @@ Win rate: ${weekTrades.filter(t => (t.pnl ?? 0) > 0).length}/${weekTrades.filter
         <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
           <ChevronRight className="h-4 w-4" />
         </Button>
+        <div className="ml-auto">
+          <Button variant="outline" size="sm" onClick={exportJournal}>
+            <Download className="h-4 w-4 mr-1" />Export Month
+          </Button>
+        </div>
       </div>
 
       {/* Legend */}
