@@ -96,14 +96,15 @@ export function TradingViewWidget({ symbol, assetType, entryPrice, exitPrice, en
       support_host: 'https://www.tradingview.com',
     });
 
-    // Add absolute time range if available
+    // Add absolute time range for zooming to trade period
     if (fromTs && toTs) {
-      params.set('range', `${fromTs},${toTs}`);
+      params.set('from', String(fromTs));
+      params.set('to', String(toTs));
     } else {
       params.set('range', range);
     }
 
-    iframe.src = `https://s.tradingview.com/widgetembed/?${params.toString()}&utm_source=localhost&utm_medium=widget_new&utm_campaign=chart`;
+    iframe.src = `https://s.tradingview.com/widgetembed/?${params.toString()}`;
     iframe.style.width = '100%';
     iframe.style.height = '100%';
     iframe.style.border = 'none';
