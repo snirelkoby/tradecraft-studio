@@ -180,10 +180,22 @@ export function TradingViewWidget({ symbol, assetType, entryPrice, exitPrice, en
   // Sort by time
   markers.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
 
+  // Calculate Risk:Reward ratio
+  let rrRatio: string | null = null;
+  if (entryPrice != null && stopLoss != null && takeProfit != null) {
+    const risk = Math.abs(entryPrice - stopLoss);
+    const reward = Math.abs(takeProfit - entryPrice);
+    if (risk > 0) {
+      rrRatio = `1:${(reward / risk).toFixed(2)}`;
+    }
+  }
+
+  const hasAnyInfo = markers.length > 0 || stopLoss != null || takeProfit != null || direction;
+
   return (
     <div className="space-y-0">
       {/* Entry/Exit/Execution markers overlay */}
-      {markers.length > 0 && (
+      {hasAnyInfo && (
         <div className="flex flex-wrap items-center gap-3 px-3 py-2 rounded-t-xl border border-b-0 border-border bg-secondary/50 text-xs">
           {markers.map((m, i) => {
             const isEntry = m.type === 'entry';
@@ -195,7 +207,7 @@ export function TradingViewWidget({ symbol, assetType, entryPrice, exitPrice, en
                 <span style={{ color }} className="text-base">{arrow}</span>
                 <span className="text-muted-foreground">{label}:</span>
                 <span className="font-mono font-bold">${m.price}</span>
-                {m.qty && <span className="text-muted-foreground">×{m.qty}</span>}
+                {m.qty != null && m.qty > 0 && <span className="text-muted-foreground">×{m.qty}</span>}
                 <span className="text-muted-foreground">
                   ({new Date(m.time).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jerusalem' })} IST)
                 </span>
@@ -217,14 +229,21 @@ export function TradingViewWidget({ symbol, assetType, entryPrice, exitPrice, en
               <span className="font-mono font-bold text-[hsl(var(--chart-green))]">${takeProfit}</span>
             </div>
           )}
+          {/* R:R Ratio */}
+          {rrRatio && (
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-accent/50 border border-border">
+              <span className="text-muted-foreground">R:R</span>
+              <span className="font-mono font-bold text-accent-foreground">{rrRatio}</span>
+            </div>
+          )}
           {direction && (
-            <div className={`ml-auto font-bold uppercase`} style={{ color: isLong ? 'hsl(var(--chart-green))' : 'hsl(var(--primary))' }}>
+            <div className="ml-auto font-bold uppercase" style={{ color: isLong ? 'hsl(var(--chart-green))' : 'hsl(var(--primary))' }}>
               {direction}
             </div>
           )}
         </div>
       )}
-      <div className={`border border-border overflow-hidden ${markers.length > 0 ? 'rounded-b-xl' : 'rounded-xl'}`} style={{ height: 400 }}>
+      <div className={`border border-border overflow-hidden ${hasAnyInfo ? 'rounded-b-xl' : 'rounded-xl'}`} style={{ height: 400 }}>
         <div ref={containerRef} className="tradingview-widget-container" style={{ height: '100%', width: '100%' }}>
           <div className="tradingview-widget-container__widget" style={{ height: '100%', width: '100%' }} />
         </div>
