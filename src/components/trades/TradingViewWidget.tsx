@@ -77,77 +77,43 @@ export function TradingViewWidget({ symbol, assetType, entryPrice, exitPrice, en
       toTs = Math.floor((exit.getTime() + padding) / 1000);
     }
 
-    // Try using TradingView.widget() constructor which supports better time control
-    const containerId = `tv_chart_${Date.now()}`;
-    const innerDiv = document.createElement('div');
-    innerDiv.id = containerId;
-    innerDiv.style.height = '100%';
-    innerDiv.style.width = '100%';
-    containerRef.current.appendChild(innerDiv);
+    // Use iframe embed with from/to URL params for precise time zooming
+    const iframe = document.createElement('iframe');
+    const params = new URLSearchParams({
+      symbol: tvSymbol,
+      interval,
+      timezone: 'Asia/Jerusalem',
+      theme: 'dark',
+      style: '1',
+      locale: 'en',
+      enable_publishing: '0',
+      hide_top_toolbar: '0',
+      hide_legend: '0',
+      save_image: '1',
+      calendar: '0',
+      backgroundColor: 'rgba(10, 12, 20, 1)',
+      gridColor: 'rgba(30, 41, 59, 0.5)',
+      support_host: 'https://www.tradingview.com',
+    });
 
-    const script = document.createElement('script');
-    script.src = 'https://s3.tradingview.com/tv.js';
-    script.async = true;
-    script.onload = () => {
-      if (!(window as any).TradingView) return;
-      const widget = new (window as any).TradingView.widget({
-        container_id: containerId,
-        autosize: true,
-        symbol: tvSymbol,
-        interval,
-        timezone: 'Asia/Jerusalem',
-        theme: 'dark',
-        style: '1',
-        locale: 'en',
-        enable_publishing: false,
-        hide_top_toolbar: false,
-        hide_legend: false,
-        save_image: true,
-        calendar: false,
-        backgroundColor: 'rgba(10, 12, 20, 1)',
-        gridColor: 'rgba(30, 41, 59, 0.5)',
-        range,
-      });
+    // Add absolute time range for zooming to trade period
+    if (fromTs && toTs) {
+      params.set('from', String(fromTs));
+      params.set('to', String(toTs));
+    } else {
+      params.set('range', range);
+    }
 
-      // After chart is ready, try to zoom to exact trade range
-      if (fromTs && toTs) {
-        try {
-          widget.onChartReady?.(() => {
-            try {
-              widget.chart().setVisibleRange({
-                from: fromTs,
-                to: toTs,
-              });
-            } catch (e) {
-              // setVisibleRange not available on free widget — range fallback is used
-            }
-          });
-        } catch (e) {
-          // onChartReady not available — range fallback is used
-        }
-      }
-    };
+    iframe.src = `https://s.tradingview.com/widgetembed/?${params.toString()}`;
+    iframe.style.width = '100%';
+    iframe.style.height = '100%';
+    iframe.style.border = 'none';
+    iframe.allowFullscreen = true;
+    iframe.setAttribute('frameborder', '0');
+    containerRef.current.appendChild(iframe);
 
-    // Fallback: if tv.js fails, use embed widget
-    script.onerror = () => {
-      if (!containerRef.current) return;
-      containerRef.current.innerHTML = '';
-      const embedScript = document.createElement('script');
-      embedScript.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
-      embedScript.async = true;
-      embedScript.innerHTML = JSON.stringify({
-        autosize: true, symbol: tvSymbol, interval, timezone: 'Asia/Jerusalem',
-        theme: 'dark', style: '1', locale: 'en', range,
-        backgroundColor: 'rgba(10, 12, 20, 1)', gridColor: 'rgba(30, 41, 59, 0.5)',
-        hide_top_toolbar: false, hide_legend: false, save_image: true, calendar: false,
-        support_host: 'https://www.tradingview.com',
-      });
-      containerRef.current.appendChild(embedScript);
-    };
-
-    document.head.appendChild(script);
     return () => {
-      try { document.head.removeChild(script); } catch {}
+      if (containerRef.current) containerRef.current.innerHTML = '';
     };
   }, [symbol, assetType, entryDate, exitDate]);
 
