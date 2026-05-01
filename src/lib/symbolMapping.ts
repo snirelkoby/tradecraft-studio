@@ -27,3 +27,33 @@ export function getTradingViewSymbol(symbol: string, assetType?: string): string
   if (assetType === 'Forex') return `FX:${symbol.replace('/', '')}`;
   return symbol;
 }
+
+/** Map symbols to Yahoo Finance ticker format */
+const FUTURES_TO_YAHOO: Record<string, string> = {
+  NQ: 'NQ=F', MNQ: 'NQ=F',
+  ES: 'ES=F', MES: 'ES=F',
+  YM: 'YM=F', MYM: 'YM=F',
+  RTY: 'RTY=F', M2K: 'RTY=F',
+  CL: 'CL=F', MCL: 'CL=F',
+  GC: 'GC=F', MGC: 'GC=F',
+  SI: 'SI=F', NG: 'NG=F',
+  '6E': 'EURUSD=X', '6J': 'JPY=X', '6B': 'GBPUSD=X',
+  ZB: 'ZB=F', ZN: 'ZN=F',
+};
+
+export function getYahooSymbol(symbol: string, assetType?: string): string {
+  const s = symbol.toUpperCase();
+  if (assetType === 'Futures') {
+    return FUTURES_TO_YAHOO[s] ?? `${s}=F`;
+  }
+  if (assetType === 'Crypto') {
+    // Common crypto: BTC -> BTC-USD
+    if (/USD$|USDT$/.test(s)) return s.replace(/USDT?$/, '') + '-USD';
+    return `${s}-USD`;
+  }
+  if (assetType === 'Forex') {
+    const clean = s.replace('/', '');
+    return clean.endsWith('=X') ? clean : `${clean}=X`;
+  }
+  return s;
+}
