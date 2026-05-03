@@ -261,6 +261,19 @@ export function TradeDetail({ trade, open, onOpenChange, trades, onTradeChange }
             </div>
 
             <div className="space-y-2.5 text-sm">
+              <StatRow label="Asset Type" value={
+                editing ? (
+                  <Select value={form.asset_type ?? 'Stocks'} onValueChange={v => setForm({ ...form, asset_type: v })}>
+                    <SelectTrigger className="h-7 w-28 text-xs bg-secondary"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Futures">Futures</SelectItem>
+                      <SelectItem value="Stocks">Stocks</SelectItem>
+                      <SelectItem value="Crypto">Crypto</SelectItem>
+                      <SelectItem value="Forex">Forex</SelectItem>
+                    </SelectContent>
+                  </Select>
+                ) : (trade.asset_type || '—')
+              } />
               <StatRow label="Side" value={
                 editing ? (
                   <select className="bg-secondary rounded px-2 py-1 text-xs border border-border" value={form.direction} onChange={e => setForm({ ...form, direction: e.target.value })}>
@@ -354,6 +367,7 @@ export function TradeDetail({ trade, open, onOpenChange, trades, onTradeChange }
             <Tabs defaultValue="notes">
               <TabsList className="bg-secondary border border-border">
                 <TabsTrigger value="notes" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs">Notes</TabsTrigger>
+                <TabsTrigger value="psych" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs">🧠 ניתוח פסיכולוגי</TabsTrigger>
                 <TabsTrigger value="executions" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs">Executions</TabsTrigger>
                 <TabsTrigger value="attachments" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs">Attachments</TabsTrigger>
               </TabsList>
@@ -365,6 +379,10 @@ export function TradeDetail({ trade, open, onOpenChange, trades, onTradeChange }
                   trade.notes ? <p className="text-sm bg-secondary rounded-lg p-3">{trade.notes}</p>
                   : <p className="text-sm text-muted-foreground py-4 text-center">No notes</p>
                 )}
+              </TabsContent>
+
+              <TabsContent value="psych">
+                <PsychAnalysis trade={trade} />
               </TabsContent>
 
               <TabsContent value="executions">
@@ -387,6 +405,52 @@ function StatRow({ label, value }: { label: string; value: React.ReactNode }) {
     <div className="flex items-center justify-between">
       <span className="text-muted-foreground text-xs">{label}</span>
       <span className="font-mono text-xs">{value}</span>
+    </div>
+  );
+}
+
+function PsychAnalysis({ trade }: { trade: Trade }) {
+  const [loading, setLoading] = useState(false);
+  const [analysis, setAnalysis] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const run = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('trade-journal-ai', {
+        body: { trade, mode: 'psych' },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setAnalysis(data.summary);
+    } catch (e: any) {
+      setError(e.message || 'Failed to generate analysis');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const hasNotes = !!(trade.notes || trade.strategy || (trade.tags && trade.tags.length));
+
+  return (
+    <div className="space-y-3" dir="rtl">
+      {!hasNotes && (
+        <p className="text-xs text-muted-foreground bg-secondary/50 rounded-lg p-3">
+          הוסף הערות, אסטרטגיה או תגיות לעסקה כדי לקבל ניתוח פסיכולוגי איכותי על מה שכתבת.
+        </p>
+      )}
+      <div className="flex justify-end">
+        <Button size="sm" onClick={run} disabled={loading}>
+          {loading ? 'מנתח...' : analysis ? 'נתח שוב' : '🧠 נתח פסיכולוגית'}
+        </Button>
+      </div>
+      {error && <p className="text-xs text-[hsl(var(--chart-red))]">{error}</p>}
+      {analysis && (
+        <div className="bg-secondary/50 rounded-lg p-4 text-sm whitespace-pre-wrap leading-relaxed">
+          {analysis}
+        </div>
+      )}
     </div>
   );
 }

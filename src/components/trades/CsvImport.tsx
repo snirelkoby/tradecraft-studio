@@ -16,6 +16,23 @@ const CSV_SOURCES = [
 
 type CsvSource = typeof CSV_SOURCES[number]['id'];
 
+/** Detect if a symbol matches a futures contract (with or without month code suffix). Returns clean symbol if match, else null. */
+function detectFutures(rawSymbol: string): { symbol: string; config: typeof FUTURES_CONFIG[number] } | null {
+  if (!rawSymbol) return null;
+  const upper = rawSymbol.toUpperCase().trim();
+  // Try exact match first
+  let cfg = FUTURES_CONFIG.find(f => f.symbol === upper);
+  if (cfg) return { symbol: cfg.symbol, config: cfg };
+  // Strip continuous-contract markers and month codes (e.g. NQH5, NQZ24, NQ1!, NQ=F)
+  const stripped = upper.replace(/=F$/, '').replace(/\d+!?$/, '').replace(/[FGHJKMNQUVXZ]\d{1,2}$/, '');
+  cfg = FUTURES_CONFIG.find(f => f.symbol === stripped);
+  if (cfg) return { symbol: cfg.symbol, config: cfg };
+  // Prefix match (e.g. "NQH5" -> "NQ")
+  cfg = FUTURES_CONFIG.find(f => upper.startsWith(f.symbol) && upper.length - f.symbol.length <= 3);
+  if (cfg) return { symbol: cfg.symbol, config: cfg };
+  return null;
+}
+
 function parseDeepCharts(text: string, userId: string) {
   const lines = text.trim().split('\n');
   if (lines.length < 2) throw new Error('CSV must have a header and at least one row');
@@ -46,17 +63,30 @@ function parseDeepCharts(text: string, userId: string) {
     const direction = qty < 0 ? 'short' : 'long';
     const absQty = Math.abs(qty);
     const pnl = parseFloat(vals[pnlIdx]);
+    const rawSym = vals[symIdx].toUpperCase();
+    const fut = detectFutures(rawSym);
+    const symbol = fut ? fut.symbol : rawSym;
+    const assetType = fut ? 'Futures' : 'Stocks';
+    const entryPrice = parseFloat(vals[entryIdx]);
+    const exitPrice = parseFloat(vals[exitIdx]);
+    // Recompute pnl correctly for futures if file has stock-style raw qty math
+    let finalPnl: number | null = isNaN(pnl) ? null : pnl;
+    if (fut && (finalPnl === null || isNaN(finalPnl))) {
+      const ticks = (exitPrice - entryPrice) / fut.config.tickSize;
+      const raw = direction === 'long' ? ticks * fut.config.tickValue * absQty : -ticks * fut.config.tickValue * absQty;
+      finalPnl = raw;
+    }
 
     return {
       user_id: userId,
-      symbol: vals[symIdx].toUpperCase(),
+      symbol,
       direction,
       entry_date: new Date(vals[dtIdx]).toISOString(),
       exit_date: new Date(vals[dtIdx]).toISOString(),
-      entry_price: parseFloat(vals[entryIdx]),
-      exit_price: parseFloat(vals[exitIdx]),
+      entry_price: entryPrice,
+      exit_price: exitPrice,
       quantity: absQty,
-      pnl: isNaN(pnl) ? null : pnl,
+      pnl: finalPnl,
       pnl_percent: null,
       fees: 0,
       stop_loss: null,
@@ -64,7 +94,7 @@ function parseDeepCharts(text: string, userId: string) {
       strategy: null,
       notes: null,
       status: 'closed' as const,
-      asset_type: 'Futures',
+      asset_type: assetType,
     };
   });
 }
@@ -377,7 +407,10 @@ function parseRithmicSimple(text: string, userId: string) {
   return lines.slice(1).filter(l => l.trim()).map(line => {
     const vals = line.split(delimiter).map(v => v.trim());
 
-    const symbol = vals[symbolIdx]?.toUpperCase().replace(/[A-Z]\d$/, '') || '';
+    const rawSymbol = vals[symbolIdx]?.toUpperCase() || '';
+    const fut = detectFutures(rawSymbol);
+    const symbol = fut ? fut.symbol : rawSymbol.replace(/[A-Z]\d$/, '');
+    const assetType = fut ? 'Futures' : 'Stocks';
     const qtyRaw = parseFloat(vals[qtyIdx]) || 1;
     const qty = Math.abs(qtyRaw);
     const openPrice = openPriceIdx !== -1 ? parseFloat(vals[openPriceIdx]) || 0 : 0;
@@ -397,9 +430,7 @@ function parseRithmicSimple(text: string, userId: string) {
       if (isNaN(pnl)) pnl = null;
     }
     if (pnl === null && openPrice && closePrice) {
-      const cleanSymbol = symbol.replace(/[A-Z]\d$/, '');
-      const futConfig = FUTURES_CONFIG.find(f => cleanSymbol.startsWith(f.symbol));
-      const pointValue = futConfig ? futConfig.tickValue / futConfig.tickSize : 1;
+      const pointValue = fut ? fut.config.tickValue / fut.config.tickSize : 1;
       pnl = direction === 'long'
         ? (closePrice - openPrice) * qty * pointValue
         : (openPrice - closePrice) * qty * pointValue;
@@ -424,7 +455,7 @@ function parseRithmicSimple(text: string, userId: string) {
       strategy: strategyIdx !== -1 ? vals[strategyIdx] || null : null,
       notes: notesIdx !== -1 ? vals[notesIdx] || null : null,
       status: 'closed' as const,
-      asset_type: 'Futures',
+      asset_type: assetType,
     };
   }).filter(t => t.symbol && t.entry_price > 0);
 }

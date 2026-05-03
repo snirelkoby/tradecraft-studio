@@ -63,34 +63,72 @@ const csvEscape = (v: any) => {
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
 
-// TradeZella CSV columns (compatible with their importer)
+// TradeZella CSV columns (compatible with their importer).
+// Reference: TradeZella import expects ISO datetime in Entry/Exit Date columns,
+// "Long"/"Short" side, "Future"/"Stock"/"Crypto"/"Forex" asset type, and signed PnL.
 function tradesToTradeZellaCsv(trades: Trade[]): string {
   const headers = [
-    'Symbol', 'Date', 'Time', 'Side', 'Quantity', 'Entry Price', 'Exit Price',
-    'Stop Loss', 'Take Profit', 'Fees', 'PnL', 'Strategy', 'Notes', 'Tags', 'Status',
-    'Entry Date', 'Exit Date', 'Asset Type',
+    'Symbol',
+    'Asset Type',
+    'Side',
+    'Quantity',
+    'Entry Price',
+    'Exit Price',
+    'Entry Date',
+    'Exit Date',
+    'Stop Loss',
+    'Take Profit',
+    'Commission',
+    'Fees',
+    'PnL',
+    'Strategy',
+    'Tags',
+    'Notes',
+    'Status',
   ];
+
+  // TradeZella asset-type normalization
+  const assetTypeMap: Record<string, string> = {
+    'Futures': 'Future',
+    'Future': 'Future',
+    'Stocks': 'Stock',
+    'Stock': 'Stock',
+    'Crypto': 'Crypto',
+    'Forex': 'Forex',
+  };
+
+  // YYYY-MM-DD HH:mm:ss in local-ish ISO (TradeZella accepts ISO 8601 too)
+  const fmtDate = (iso: string | null | undefined) => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  };
+
   const rows = trades.map(t => {
-    const entryD = t.entry_date ? new Date(t.entry_date) : null;
+    const assetType = assetTypeMap[t.asset_type ?? ''] ?? (t.asset_type ?? 'Stock');
+    const side = t.direction?.toLowerCase() === 'short' ? 'Short' : 'Long';
+    const qty = Math.abs(Number(t.quantity ?? 0)) || '';
+    const status = t.status === 'closed' ? 'Closed' : 'Open';
     return [
-      t.symbol,
-      entryD ? format(entryD, 'yyyy-MM-dd') : '',
-      entryD ? format(entryD, 'HH:mm:ss') : '',
-      t.direction === 'long' ? 'Long' : 'Short',
-      t.quantity,
-      t.entry_price,
+      t.symbol?.toUpperCase() ?? '',
+      assetType,
+      side,
+      qty,
+      t.entry_price ?? '',
       t.exit_price ?? '',
+      fmtDate(t.entry_date),
+      fmtDate(t.exit_date),
       t.stop_loss ?? '',
       t.take_profit ?? '',
       t.fees ?? 0,
+      t.fees ?? 0,
       t.pnl ?? '',
       t.strategy ?? '',
-      t.notes ?? '',
       (t.tags ?? []).join('|'),
-      t.status,
-      t.entry_date ?? '',
-      t.exit_date ?? '',
-      t.asset_type ?? '',
+      (t.notes ?? '').replace(/\r?\n/g, ' '),
+      status,
     ];
   });
   return [headers, ...rows].map(r => r.map(csvEscape).join(',')).join('\n');
