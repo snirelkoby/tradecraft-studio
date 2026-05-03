@@ -9,7 +9,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { trade } = await req.json();
+    const { trade, mode } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
@@ -28,7 +28,27 @@ serve(async (req) => {
       ? (Math.abs(trade.take_profit - trade.entry_price) / Math.abs(trade.entry_price - trade.stop_loss)).toFixed(2)
       : 'N/A';
 
-    const prompt = `You are a professional trading coach writing a journal summary for a single trade. Write in Hebrew. Be specific and actionable.
+    const isPsych = mode === 'psych';
+
+    const prompt = isPsych ? `אתה מאמן פסיכולוגי לסוחרים. נתח אך ורק את המחשבות, הרגשות, וההתנהגות של הסוחר על בסיס מה שהוא רשם — לא את התוצאה הכספית של העסקה. כתוב בעברית.
+
+מה שהסוחר רשם:
+- הערות (Notes): ${trade.notes || '— ריק —'}
+- אסטרטגיה: ${trade.strategy || '— לא צוינה —'}
+- תגיות: ${trade.tags?.join(', ') || '— ריק —'}
+
+הקשר מינימלי (אל תשפוט לפי זה):
+- ${trade.symbol} ${trade.direction}, משך ${holdTimeMin} דק'
+
+בנה ניתוח פסיכולוגי עם הסעיפים הבאים (השתמש באימוג'י):
+1. **🧠 דפוסי חשיבה שזוהו** — אילו דפוסים פסיכולוגיים בולטים מתוך מה שכתב? (FOMO, נקמה, היסוס, יוהרה, ביטחון בריא, ספקנות וכו')
+2. **❤️ מצב רגשי** — איזה מצב רגשי נחשף בכתיבה?
+3. **⚠️ דגלים אדומים** — סימני אזהרה התנהגותיים (אם יש)
+4. **✨ חוזקות שזוהו** — מה הסוחר עשה נכון ברמה המנטלית?
+5. **🎯 משימה אחת לפעם הבאה** — תרגיל מנטלי קונקרטי אחד
+
+אל תזכיר את ה-PnL, אחוזי רווח, או האם העסקה הצליחה. עד 220 מילים.`
+    : `You are a professional trading coach writing a journal summary for a single trade. Write in Hebrew. Be specific and actionable.
 
 Trade Details:
 - Symbol: ${trade.symbol}
