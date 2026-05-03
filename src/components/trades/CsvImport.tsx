@@ -63,17 +63,30 @@ function parseDeepCharts(text: string, userId: string) {
     const direction = qty < 0 ? 'short' : 'long';
     const absQty = Math.abs(qty);
     const pnl = parseFloat(vals[pnlIdx]);
+    const rawSym = vals[symIdx].toUpperCase();
+    const fut = detectFutures(rawSym);
+    const symbol = fut ? fut.symbol : rawSym;
+    const assetType = fut ? 'Futures' : 'Stocks';
+    const entryPrice = parseFloat(vals[entryIdx]);
+    const exitPrice = parseFloat(vals[exitIdx]);
+    // Recompute pnl correctly for futures if file has stock-style raw qty math
+    let finalPnl: number | null = isNaN(pnl) ? null : pnl;
+    if (fut && (finalPnl === null || isNaN(finalPnl))) {
+      const ticks = (exitPrice - entryPrice) / fut.config.tickSize;
+      const raw = direction === 'long' ? ticks * fut.config.tickValue * absQty : -ticks * fut.config.tickValue * absQty;
+      finalPnl = raw;
+    }
 
     return {
       user_id: userId,
-      symbol: vals[symIdx].toUpperCase(),
+      symbol,
       direction,
       entry_date: new Date(vals[dtIdx]).toISOString(),
       exit_date: new Date(vals[dtIdx]).toISOString(),
-      entry_price: parseFloat(vals[entryIdx]),
-      exit_price: parseFloat(vals[exitIdx]),
+      entry_price: entryPrice,
+      exit_price: exitPrice,
       quantity: absQty,
-      pnl: isNaN(pnl) ? null : pnl,
+      pnl: finalPnl,
       pnl_percent: null,
       fees: 0,
       stop_loss: null,
@@ -81,7 +94,7 @@ function parseDeepCharts(text: string, userId: string) {
       strategy: null,
       notes: null,
       status: 'closed' as const,
-      asset_type: 'Futures',
+      asset_type: assetType,
     };
   });
 }
