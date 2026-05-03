@@ -367,6 +367,7 @@ export function TradeDetail({ trade, open, onOpenChange, trades, onTradeChange }
             <Tabs defaultValue="notes">
               <TabsList className="bg-secondary border border-border">
                 <TabsTrigger value="notes" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs">Notes</TabsTrigger>
+                <TabsTrigger value="psych" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs">🧠 ניתוח פסיכולוגי</TabsTrigger>
                 <TabsTrigger value="executions" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs">Executions</TabsTrigger>
                 <TabsTrigger value="attachments" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs">Attachments</TabsTrigger>
               </TabsList>
@@ -378,6 +379,10 @@ export function TradeDetail({ trade, open, onOpenChange, trades, onTradeChange }
                   trade.notes ? <p className="text-sm bg-secondary rounded-lg p-3">{trade.notes}</p>
                   : <p className="text-sm text-muted-foreground py-4 text-center">No notes</p>
                 )}
+              </TabsContent>
+
+              <TabsContent value="psych">
+                <PsychAnalysis trade={trade} />
               </TabsContent>
 
               <TabsContent value="executions">
