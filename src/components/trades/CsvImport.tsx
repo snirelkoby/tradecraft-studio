@@ -407,7 +407,10 @@ function parseRithmicSimple(text: string, userId: string) {
   return lines.slice(1).filter(l => l.trim()).map(line => {
     const vals = line.split(delimiter).map(v => v.trim());
 
-    const symbol = vals[symbolIdx]?.toUpperCase().replace(/[A-Z]\d$/, '') || '';
+    const rawSymbol = vals[symbolIdx]?.toUpperCase() || '';
+    const fut = detectFutures(rawSymbol);
+    const symbol = fut ? fut.symbol : rawSymbol.replace(/[A-Z]\d$/, '');
+    const assetType = fut ? 'Futures' : 'Stocks';
     const qtyRaw = parseFloat(vals[qtyIdx]) || 1;
     const qty = Math.abs(qtyRaw);
     const openPrice = openPriceIdx !== -1 ? parseFloat(vals[openPriceIdx]) || 0 : 0;
@@ -427,9 +430,7 @@ function parseRithmicSimple(text: string, userId: string) {
       if (isNaN(pnl)) pnl = null;
     }
     if (pnl === null && openPrice && closePrice) {
-      const cleanSymbol = symbol.replace(/[A-Z]\d$/, '');
-      const futConfig = FUTURES_CONFIG.find(f => cleanSymbol.startsWith(f.symbol));
-      const pointValue = futConfig ? futConfig.tickValue / futConfig.tickSize : 1;
+      const pointValue = fut ? fut.config.tickValue / fut.config.tickSize : 1;
       pnl = direction === 'long'
         ? (closePrice - openPrice) * qty * pointValue
         : (openPrice - closePrice) * qty * pointValue;
@@ -454,7 +455,7 @@ function parseRithmicSimple(text: string, userId: string) {
       strategy: strategyIdx !== -1 ? vals[strategyIdx] || null : null,
       notes: notesIdx !== -1 ? vals[notesIdx] || null : null,
       status: 'closed' as const,
-      asset_type: 'Futures',
+      asset_type: assetType,
     };
   }).filter(t => t.symbol && t.entry_price > 0);
 }
