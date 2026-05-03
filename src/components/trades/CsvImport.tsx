@@ -16,6 +16,23 @@ const CSV_SOURCES = [
 
 type CsvSource = typeof CSV_SOURCES[number]['id'];
 
+/** Detect if a symbol matches a futures contract (with or without month code suffix). Returns clean symbol if match, else null. */
+function detectFutures(rawSymbol: string): { symbol: string; config: typeof FUTURES_CONFIG[number] } | null {
+  if (!rawSymbol) return null;
+  const upper = rawSymbol.toUpperCase().trim();
+  // Try exact match first
+  let cfg = FUTURES_CONFIG.find(f => f.symbol === upper);
+  if (cfg) return { symbol: cfg.symbol, config: cfg };
+  // Strip continuous-contract markers and month codes (e.g. NQH5, NQZ24, NQ1!, NQ=F)
+  const stripped = upper.replace(/=F$/, '').replace(/\d+!?$/, '').replace(/[FGHJKMNQUVXZ]\d{1,2}$/, '');
+  cfg = FUTURES_CONFIG.find(f => f.symbol === stripped);
+  if (cfg) return { symbol: cfg.symbol, config: cfg };
+  // Prefix match (e.g. "NQH5" -> "NQ")
+  cfg = FUTURES_CONFIG.find(f => upper.startsWith(f.symbol) && upper.length - f.symbol.length <= 3);
+  if (cfg) return { symbol: cfg.symbol, config: cfg };
+  return null;
+}
+
 function parseDeepCharts(text: string, userId: string) {
   const lines = text.trim().split('\n');
   if (lines.length < 2) throw new Error('CSV must have a header and at least one row');
