@@ -302,16 +302,32 @@ export function TradingViewWidget({
       }
     });
 
-    // Auto-zoom to trade window
+    // Auto-zoom: intraday → full trading day; multi-day → ≥3 months
     if (entryDate) {
-      const entryTs = Math.floor(new Date(entryDate).getTime() / 1000);
-      const exitTs = Math.floor(new Date(exitDate || new Date().toISOString()).getTime() / 1000);
-      const dur = Math.max(exitTs - entryTs, 60);
-      const pad = Math.max(dur * 0.3, 5 * 60);
-      chartRef.current.timeScale().setVisibleRange({
-        from: (entryTs - pad) as UTCTimestamp,
-        to: (exitTs + pad) as UTCTimestamp,
-      });
+      const entry = new Date(entryDate);
+      const exit = new Date(exitDate || new Date().toISOString());
+      let fromTs: number, toTs: number;
+      if (entry.toDateString() === exit.toDateString()) {
+        // Full day
+        const dayStart = new Date(entry); dayStart.setHours(0, 0, 0, 0);
+        const dayEnd = new Date(entry); dayEnd.setHours(23, 59, 59, 999);
+        fromTs = Math.floor(dayStart.getTime() / 1000);
+        toTs = Math.floor(dayEnd.getTime() / 1000);
+      } else {
+        const dur = exit.getTime() - entry.getTime();
+        const minPad = 90 * 86400 * 1000; // 3 months
+        const pad = Math.max(dur * 0.3, minPad);
+        fromTs = Math.floor((entry.getTime() - pad) / 1000);
+        toTs = Math.floor((exit.getTime() + pad) / 1000);
+      }
+      try {
+        chartRef.current.timeScale().setVisibleRange({
+          from: fromTs as UTCTimestamp,
+          to: toTs as UTCTimestamp,
+        });
+      } catch {
+        chartRef.current.timeScale().fitContent();
+      }
     } else {
       chartRef.current.timeScale().fitContent();
     }
