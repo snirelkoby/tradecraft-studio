@@ -261,6 +261,19 @@ export function TradeDetail({ trade, open, onOpenChange, trades, onTradeChange }
             </div>
 
             <div className="space-y-2.5 text-sm">
+              <StatRow label="Asset Type" value={
+                editing ? (
+                  <Select value={form.asset_type ?? 'Stocks'} onValueChange={v => setForm({ ...form, asset_type: v })}>
+                    <SelectTrigger className="h-7 w-28 text-xs bg-secondary"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Futures">Futures</SelectItem>
+                      <SelectItem value="Stocks">Stocks</SelectItem>
+                      <SelectItem value="Crypto">Crypto</SelectItem>
+                      <SelectItem value="Forex">Forex</SelectItem>
+                    </SelectContent>
+                  </Select>
+                ) : (trade.asset_type || '—')
+              } />
               <StatRow label="Side" value={
                 editing ? (
                   <select className="bg-secondary rounded px-2 py-1 text-xs border border-border" value={form.direction} onChange={e => setForm({ ...form, direction: e.target.value })}>
