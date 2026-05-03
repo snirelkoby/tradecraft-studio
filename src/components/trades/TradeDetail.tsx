@@ -408,3 +408,49 @@ function StatRow({ label, value }: { label: string; value: React.ReactNode }) {
     </div>
   );
 }
+
+function PsychAnalysis({ trade }: { trade: Trade }) {
+  const [loading, setLoading] = useState(false);
+  const [analysis, setAnalysis] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const run = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('trade-journal-ai', {
+        body: { trade, mode: 'psych' },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setAnalysis(data.summary);
+    } catch (e: any) {
+      setError(e.message || 'Failed to generate analysis');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const hasNotes = !!(trade.notes || trade.strategy || (trade.tags && trade.tags.length));
+
+  return (
+    <div className="space-y-3" dir="rtl">
+      {!hasNotes && (
+        <p className="text-xs text-muted-foreground bg-secondary/50 rounded-lg p-3">
+          הוסף הערות, אסטרטגיה או תגיות לעסקה כדי לקבל ניתוח פסיכולוגי איכותי על מה שכתבת.
+        </p>
+      )}
+      <div className="flex justify-end">
+        <Button size="sm" onClick={run} disabled={loading}>
+          {loading ? 'מנתח...' : analysis ? 'נתח שוב' : '🧠 נתח פסיכולוגית'}
+        </Button>
+      </div>
+      {error && <p className="text-xs text-[hsl(var(--chart-red))]">{error}</p>}
+      {analysis && (
+        <div className="bg-secondary/50 rounded-lg p-4 text-sm whitespace-pre-wrap leading-relaxed">
+          {analysis}
+        </div>
+      )}
+    </div>
+  );
+}
