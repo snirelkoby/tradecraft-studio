@@ -27,24 +27,16 @@ interface TradingViewWidgetProps {
   takeProfit?: number | null;
 }
 
-// Pick Yahoo interval based on trade duration
-function pickInterval(durationHours: number): { interval: string; label: string } {
-  if (durationHours <= 1) return { interval: '1m', label: '1m' };
-  if (durationHours <= 4) return { interval: '2m', label: '2m' };
-  if (durationHours <= 24) return { interval: '5m', label: '5m' };
-  if (durationHours <= 24 * 5) return { interval: '15m', label: '15m' };
-  if (durationHours <= 24 * 30) return { interval: '60m', label: '1h' };
-  return { interval: '1d', label: '1d' };
+// Pick Yahoo interval based on trade duration. Minimum is 1h per user preference.
+function pickInterval(durationHours: number, multiDay: boolean): { interval: string; label: string } {
+  if (multiDay) return { interval: '1d', label: '1d' };
+  return { interval: '60m', label: '1h' };
 }
 
 const INTERVAL_OPTIONS = [
-  { value: '1m', label: '1m' },
-  { value: '2m', label: '2m' },
-  { value: '5m', label: '5m' },
-  { value: '15m', label: '15m' },
-  { value: '30m', label: '30m' },
   { value: '60m', label: '1h' },
   { value: '1d', label: '1d' },
+  { value: '1wk', label: '1w' },
 ];
 
 export function TradingViewWidget({
@@ -55,36 +47,59 @@ export function TradingViewWidget({
   const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const volumeSeriesRef = useRef<ISeriesApi<'Histogram'> | null>(null);
 
+  // Determine if trade spans multiple days
+  const multiDay = useMemo(() => {
+    if (!entryDate) return false;
+    const entry = new Date(entryDate);
+    const exit = exitDate ? new Date(exitDate) : entry;
+    return entry.toDateString() !== exit.toDateString();
+  }, [entryDate, exitDate]);
+
   // Auto-pick interval, allow override
   const autoPick = useMemo(() => {
-    if (!entryDate) return { interval: '5m', label: '5m' };
+    if (!entryDate) return { interval: '60m', label: '1h' };
     const entry = new Date(entryDate);
     const exit = exitDate ? new Date(exitDate) : new Date();
     const hrs = (exit.getTime() - entry.getTime()) / 3600000;
-    return pickInterval(Math.max(hrs, 0.1));
-  }, [entryDate, exitDate]);
+    return pickInterval(Math.max(hrs, 0.1), multiDay);
+  }, [entryDate, exitDate, multiDay]);
 
   const [interval, setInterval] = useState(autoPick.interval);
   useEffect(() => { setInterval(autoPick.interval); }, [autoPick.interval]);
 
-  // Compute fetch range
+  // Compute fetch range:
+  // - intraday trade: fetch the full calendar day of the trade (with small pad)
+  // - multi-day trade: fetch at least 3 months (centered on trade window)
   const { period1, period2 } = useMemo(() => {
     if (!entryDate) {
       const now = Math.floor(Date.now() / 1000);
-      return { period1: now - 86400 * 5, period2: now };
+      return { period1: now - 86400 * 90, period2: now };
     }
-    const entry = new Date(entryDate).getTime();
-    const exit = exitDate ? new Date(exitDate).getTime() : Date.now();
-    const dur = Math.max(exit - entry, 60_000);
-    // Pad ~30% on each side, with min 1h and max ~30d total padding
-    const pad = Math.min(Math.max(dur * 0.4, 60 * 60 * 1000), 30 * 86400 * 1000);
-    // For intraday intervals Yahoo limits to ~60 days; cap range accordingly
-    let p1 = Math.floor((entry - pad) / 1000);
-    let p2 = Math.floor((exit + pad) / 1000);
-    const maxRange = interval === '1d' ? 86400 * 365 * 5 : interval === '60m' ? 86400 * 60 : 86400 * 30;
+    const entry = new Date(entryDate);
+    const exit = exitDate ? new Date(exitDate) : new Date();
+
+    if (!multiDay) {
+      // Full day surrounding the entry date
+      const dayStart = new Date(entry); dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(entry); dayEnd.setHours(23, 59, 59, 999);
+      // Pad +/- 1 day so weekend/early hours render
+      return {
+        period1: Math.floor(dayStart.getTime() / 1000) - 86400,
+        period2: Math.floor(dayEnd.getTime() / 1000) + 86400,
+      };
+    }
+
+    // Multi-day: minimum 3 months of context
+    const dur = exit.getTime() - entry.getTime();
+    const minPad = 90 * 86400 * 1000; // 3 months
+    const pad = Math.max(dur * 0.5, minPad);
+    let p1 = Math.floor((entry.getTime() - pad) / 1000);
+    let p2 = Math.floor((exit.getTime() + pad) / 1000);
+    // Yahoo: 60m max ~730d, 1d max years
+    const maxRange = interval === '1d' || interval === '1wk' ? 86400 * 365 * 5 : 86400 * 700;
     if (p2 - p1 > maxRange) p1 = p2 - maxRange;
     return { period1: p1, period2: p2 };
-  }, [entryDate, exitDate, interval]);
+  }, [entryDate, exitDate, interval, multiDay]);
 
   const { data: chartData, isLoading, error } = useQuery({
     queryKey: ['yahoo-ohlc', symbol, assetType, interval, period1, period2],
