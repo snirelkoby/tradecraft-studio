@@ -454,21 +454,55 @@ function StatRow({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
+type Tone = 'strict' | 'encouraging';
+type Phase = 'idle' | 'questions' | 'final';
+
 function PsychAnalysis({ trade }: { trade: Trade }) {
   const [loading, setLoading] = useState(false);
-  const [analysis, setAnalysis] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [tone, setTone] = useState<Tone>('encouraging');
+  const [scope, setScope] = useState<'written' | 'all'>('written');
+  const [phase, setPhase] = useState<Phase>('idle');
+  const [questions, setQuestions] = useState<string[]>([]);
+  const [answers, setAnswers] = useState<string[]>([]);
+  const [analysis, setAnalysis] = useState<string | null>(null);
 
-  const run = async () => {
+  const psychNotes = (trade as any).psych_notes ?? null;
+  const hasContent = !!(trade.notes || psychNotes || trade.strategy || (trade.tags && trade.tags.length));
+
+  const generateQuestions = async () => {
+    setLoading(true);
+    setError(null);
+    setAnalysis(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('trade-journal-ai', {
+        body: { trade, mode: 'psych-questions', tone, scope },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const qs = (data.questions ?? []) as string[];
+      setQuestions(qs);
+      setAnswers(qs.map(() => ''));
+      setPhase('questions');
+    } catch (e: any) {
+      setError(e.message || 'Failed to generate questions');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const finalize = async () => {
     setLoading(true);
     setError(null);
     try {
+      const qa = questions.map((q, i) => ({ q, a: answers[i] || '' }));
       const { data, error } = await supabase.functions.invoke('trade-journal-ai', {
-        body: { trade, mode: 'psych' },
+        body: { trade, mode: 'psych', tone, scope, qa },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       setAnalysis(data.summary);
+      setPhase('final');
     } catch (e: any) {
       setError(e.message || 'Failed to generate analysis');
     } finally {
@@ -476,22 +510,89 @@ function PsychAnalysis({ trade }: { trade: Trade }) {
     }
   };
 
-  const hasNotes = !!(trade.notes || trade.strategy || (trade.tags && trade.tags.length));
+  const reset = () => {
+    setPhase('idle');
+    setQuestions([]);
+    setAnswers([]);
+    setAnalysis(null);
+    setError(null);
+  };
 
   return (
     <div className="space-y-3" dir="rtl">
-      {!hasNotes && (
+      {!hasContent && (
         <p className="text-xs text-muted-foreground bg-secondary/50 rounded-lg p-3">
-          הוסף הערות, אסטרטגיה או תגיות לעסקה כדי לקבל ניתוח פסיכולוגי איכותי על מה שכתבת.
+          הוסף הערות, יומן פסיכולוגי או תגיות לעסקה כדי לקבל ניתוח איכותי.
         </p>
       )}
-      <div className="flex justify-end">
-        <Button size="sm" onClick={run} disabled={loading}>
-          {loading ? 'מנתח...' : analysis ? 'נתח שוב' : '🧠 נתח פסיכולוגית'}
-        </Button>
+
+      <div className="flex flex-wrap items-center gap-2 bg-secondary/40 rounded-lg p-3">
+        <div className="flex items-center gap-1.5">
+          <span className="text-[11px] text-muted-foreground">טון:</span>
+          <Button size="sm" variant={tone === 'encouraging' ? 'default' : 'outline'} className="h-7 text-xs" onClick={() => setTone('encouraging')}>
+            🤗 מעודד
+          </Button>
+          <Button size="sm" variant={tone === 'strict' ? 'default' : 'outline'} className="h-7 text-xs" onClick={() => setTone('strict')}>
+            🪖 מחמיר
+          </Button>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-[11px] text-muted-foreground">היקף:</span>
+          <Button size="sm" variant={scope === 'written' ? 'default' : 'outline'} className="h-7 text-xs" onClick={() => setScope('written')}>
+            רק מה שרשמתי
+          </Button>
+          <Button size="sm" variant={scope === 'all' ? 'default' : 'outline'} className="h-7 text-xs" onClick={() => setScope('all')}>
+            כולל ביצועים
+          </Button>
+        </div>
+        <div className="ms-auto flex items-center gap-2">
+          {phase !== 'idle' && (
+            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={reset}>איפוס</Button>
+          )}
+          {phase === 'idle' && (
+            <Button size="sm" onClick={generateQuestions} disabled={loading}>
+              {loading ? 'יוצר שאלות...' : '🎯 התחל ניתוח עם שאלות המשך'}
+            </Button>
+          )}
+        </div>
       </div>
+
       {error && <p className="text-xs text-[hsl(var(--chart-red))]">{error}</p>}
-      {analysis && (
+
+      {phase === 'questions' && (
+        <div className="space-y-3 bg-secondary/30 rounded-lg p-4">
+          <p className="text-xs text-muted-foreground">
+            ענה על השאלות הממוקדות (אפשר לדלג על חלקן) ואז קבל סיכום פסיכולוגי מותאם.
+          </p>
+          {questions.map((q, i) => (
+            <div key={i} className="space-y-1.5">
+              <p className="text-sm font-medium">
+                <span className="text-primary me-1">{i + 1}.</span>{q}
+              </p>
+              <Textarea
+                value={answers[i]}
+                onChange={e => {
+                  const next = [...answers]; next[i] = e.target.value; setAnswers(next);
+                }}
+                rows={2}
+                className="bg-background text-sm"
+                dir="rtl"
+                placeholder="התשובה שלך..."
+              />
+            </div>
+          ))}
+          <div className="flex justify-end gap-2 pt-2">
+            <Button size="sm" variant="outline" onClick={generateQuestions} disabled={loading}>
+              שאלות חדשות
+            </Button>
+            <Button size="sm" onClick={finalize} disabled={loading}>
+              {loading ? 'מנתח...' : '🧠 צור סיכום פסיכולוגי'}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {phase === 'final' && analysis && (
         <div className="bg-secondary/50 rounded-lg p-4 text-sm whitespace-pre-wrap leading-relaxed">
           {analysis}
         </div>
