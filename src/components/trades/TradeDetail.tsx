@@ -345,16 +345,20 @@ export function TradeDetail({ trade, open, onOpenChange, trades, onTradeChange }
                 } />
               </div>
 
-              {(trade.tags ?? []).length > 0 && (
-                <div className="pt-2">
-                  <p className="text-[10px] text-muted-foreground uppercase mb-1">Tags</p>
+              <div className="pt-2">
+                <p className="text-[10px] text-muted-foreground uppercase mb-1">Tags</p>
+                {editing ? (
+                  <TagInput tags={editTags} onChange={setEditTags} suggestions={tagSuggestions} />
+                ) : (trade.tags ?? []).length > 0 ? (
                   <div className="flex flex-wrap gap-1">
                     {(trade.tags ?? []).map(tag => (
                       <Badge key={tag} variant="secondary" className="text-[10px] bg-primary/10 text-primary">{tag}</Badge>
                     ))}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <p className="text-[11px] text-muted-foreground">—</p>
+                )}
+              </div>
             </div>
           </div>
 
@@ -376,18 +380,43 @@ export function TradeDetail({ trade, open, onOpenChange, trades, onTradeChange }
             <Tabs defaultValue="notes">
               <TabsList className="bg-secondary border border-border">
                 <TabsTrigger value="notes" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs">Notes</TabsTrigger>
-                <TabsTrigger value="psych" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs">🧠 ניתוח פסיכולוגי</TabsTrigger>
+                <TabsTrigger value="psych-journal" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs">🧠 יומן פסיכולוגי</TabsTrigger>
+                <TabsTrigger value="psych" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs">🧠 ניתוח AI</TabsTrigger>
                 <TabsTrigger value="executions" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs">Executions</TabsTrigger>
                 <TabsTrigger value="attachments" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs">Attachments</TabsTrigger>
               </TabsList>
 
               <TabsContent value="notes">
                 {editing ? (
-                  <Textarea value={form.notes ?? ''} onChange={e => setForm({ ...form, notes: e.target.value })} className="bg-secondary" rows={4} placeholder="Trade notes..." />
+                  <Textarea value={form.notes ?? ''} onChange={e => setForm({ ...form, notes: e.target.value })} className="bg-secondary" rows={5} placeholder="Trade plan, reasoning, market context..." />
                 ) : (
-                  trade.notes ? <p className="text-sm bg-secondary rounded-lg p-3">{trade.notes}</p>
+                  trade.notes ? <p className="text-sm bg-secondary rounded-lg p-3 whitespace-pre-wrap">{trade.notes}</p>
                   : <p className="text-sm text-muted-foreground py-4 text-center">No notes</p>
                 )}
+              </TabsContent>
+
+              <TabsContent value="psych-journal">
+                <div className="space-y-2" dir="rtl">
+                  <p className="text-[11px] text-muted-foreground">
+                    כתוב כאן את הצד הפסיכולוגי של העסקה — רגשות, מחשבות, לחץ, FOMO, ביטחון, היסוס. נשמר על העסקה לתמיד.
+                  </p>
+                  {editing ? (
+                    <Textarea
+                      value={form.psych_notes ?? ''}
+                      onChange={e => setForm({ ...form, psych_notes: e.target.value })}
+                      className="bg-secondary"
+                      rows={6}
+                      placeholder="איך הרגשת לפני / במהלך / אחרי העסקה?"
+                      dir="rtl"
+                    />
+                  ) : (trade as any).psych_notes ? (
+                    <p className="text-sm bg-secondary rounded-lg p-3 whitespace-pre-wrap">{(trade as any).psych_notes}</p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground py-4 text-center">
+                      אין הערות פסיכולוגיות. לחץ Edit כדי להוסיף.
+                    </p>
+                  )}
+                </div>
               </TabsContent>
 
               <TabsContent value="psych">
@@ -395,7 +424,14 @@ export function TradeDetail({ trade, open, onOpenChange, trades, onTradeChange }
               </TabsContent>
 
               <TabsContent value="executions">
-                <TradeExecutions tradeId={trade.id} tradeEntryDate={trade.entry_date} />
+                <TradeExecutions
+                  tradeId={trade.id}
+                  tradeEntryDate={trade.entry_date}
+                  symbol={trade.symbol}
+                  assetType={trade.asset_type}
+                  entryPrice={trade.entry_price}
+                  direction={trade.direction}
+                />
               </TabsContent>
 
               <TabsContent value="attachments">
