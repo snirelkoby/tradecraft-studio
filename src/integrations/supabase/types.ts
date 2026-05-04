@@ -761,6 +761,7 @@ export type Database = {
           notes: string | null
           pnl: number | null
           pnl_percent: number | null
+          psych_notes: string | null
           quantity: number
           screenshot_url: string | null
           status: string
@@ -787,6 +788,7 @@ export type Database = {
           notes?: string | null
           pnl?: number | null
           pnl_percent?: number | null
+          psych_notes?: string | null
           quantity?: number
           screenshot_url?: string | null
           status?: string
@@ -813,6 +815,7 @@ export type Database = {
           notes?: string | null
           pnl?: number | null
           pnl_percent?: number | null
+          psych_notes?: string | null
           quantity?: number
           screenshot_url?: string | null
           status?: string
