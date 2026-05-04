@@ -121,6 +121,7 @@ export function TradeForm({ onSuccess, accountName }: TradeFormProps) {
         pnl_percent: pnlPercent,
         strategy: form.strategy || null,
         notes: form.notes || null,
+        psych_notes: form.psych_notes || null,
         tags: tags.length > 0 ? tags : null,
         status,
         account_name: accountName || null,
