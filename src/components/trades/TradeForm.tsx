@@ -259,7 +259,21 @@ export function TradeForm({ onSuccess, accountName }: TradeFormProps) {
       </div>
       <div>
         <label className="text-xs text-muted-foreground uppercase mb-1 block">Notes</label>
-        <Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} className="bg-secondary" rows={3} />
+        <Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} className="bg-secondary" rows={3} placeholder="Trade plan, reasoning, market context..." />
+      </div>
+      <div>
+        <label className="text-xs text-muted-foreground uppercase mb-1 block flex items-center gap-1">
+          🧠 Psychology Notes
+          <span className="text-[10px] text-muted-foreground/70 normal-case">(emotions, mindset, pressure, hesitation)</span>
+        </label>
+        <Textarea
+          value={form.psych_notes}
+          onChange={e => setForm({ ...form, psych_notes: e.target.value })}
+          className="bg-secondary"
+          rows={3}
+          placeholder="איך הרגשת לפני / במהלך / אחרי העסקה? FOMO? לחץ? ביטחון? היסוס?"
+          dir="rtl"
+        />
       </div>
       <Button type="submit" className="w-full font-bold" disabled={addTrade.isPending}>
         {addTrade.isPending ? 'Saving...' : 'COMMIT TRADE'}
