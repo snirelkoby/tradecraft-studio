@@ -8,18 +8,56 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
+import { FUTURES_CONFIG } from '@/lib/assetConfig';
 
 interface TradeExecutionsProps {
   tradeId: string;
   tradeEntryDate?: string;
+  symbol?: string;
+  assetType?: string | null;
+  entryPrice?: number;
+  direction?: string;
 }
 
-export function TradeExecutions({ tradeId, tradeEntryDate }: TradeExecutionsProps) {
+/**
+ * Convert price movement (entry → execution price) into actual $ value
+ * for the asset class. For futures, uses tickSize/tickValue. For other
+ * asset types, treats it as (priceDelta * quantity).
+ */
+function movementToDollars(
+  symbol: string,
+  assetType: string | null | undefined,
+  direction: string | undefined,
+  entryPrice: number,
+  execPrice: number,
+  qty: number,
+): { delta: number; dollars: number } {
+  const dir = direction === 'short' ? -1 : 1;
+  const delta = (execPrice - entryPrice) * dir;
+
+  if (assetType === 'Futures') {
+    const cfg = FUTURES_CONFIG.find(f => f.symbol === symbol);
+    if (cfg) {
+      const ticks = (execPrice - entryPrice) / cfg.tickSize;
+      const dollars = ticks * cfg.tickValue * qty * dir;
+      return { delta, dollars };
+    }
+  }
+  return { delta, dollars: delta * qty };
+}
+
+export function TradeExecutions({
+  tradeId,
+  tradeEntryDate,
+  symbol,
+  assetType,
+  entryPrice,
+  direction,
+}: TradeExecutionsProps) {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [adding, setAdding] = useState(false);
 
-  // Default to trade entry date or now
   const defaultDate = tradeEntryDate
     ? new Date(tradeEntryDate).toISOString().slice(0, 16)
     : new Date().toISOString().slice(0, 16);
@@ -77,12 +115,20 @@ export function TradeExecutions({ tradeId, tradeEntryDate }: TradeExecutionsProp
     },
   });
 
-  const nowLocal = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  // Live preview $ for "add execution" form
+  const previewDollars = (() => {
+    const p = parseFloat(form.price);
+    const q = parseFloat(form.quantity) || 1;
+    if (!symbol || entryPrice == null || !p || form.execution_type !== 'exit') return null;
+    return movementToDollars(symbol, assetType, direction, entryPrice, p, q).dollars;
+  })();
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-xs text-muted-foreground">Scale in/out entries for this trade</p>
+        <p className="text-xs text-muted-foreground">
+          Scale in/out for this trade — exit P&L shown in real $ based on asset type
+        </p>
         <Button size="sm" variant="outline" onClick={() => setAdding(!adding)}>
           <Plus className="h-3 w-3 mr-1" />{adding ? 'Cancel' : 'Add Execution'}
         </Button>
@@ -99,10 +145,16 @@ export function TradeExecutions({ tradeId, tradeEntryDate }: TradeExecutionsProp
           </Select>
           <Input type="number" step="any" placeholder="Price" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} className="bg-background text-xs" />
           <Input type="number" min="1" placeholder="Qty" value={form.quantity} onChange={e => setForm({ ...form, quantity: e.target.value })} className="bg-background text-xs" />
-          <div className="flex gap-1">
-            <Input type="datetime-local" value={form.executed_at} onChange={e => setForm({ ...form, executed_at: e.target.value })} className="bg-background text-xs flex-1" />
-          </div>
+          <Input type="datetime-local" value={form.executed_at} onChange={e => setForm({ ...form, executed_at: e.target.value })} className="bg-background text-xs" />
           <Button size="sm" onClick={() => addExecution.mutate()} disabled={!form.price}>Add</Button>
+          {previewDollars !== null && (
+            <div className="col-span-5 text-[11px] text-muted-foreground">
+              Estimated $ for this scale-out:{' '}
+              <span className={`font-mono font-bold ${previewDollars >= 0 ? 'text-[hsl(var(--chart-green))]' : 'text-[hsl(var(--chart-red))]'}`}>
+                {previewDollars >= 0 ? '+' : ''}${previewDollars.toFixed(2)}
+              </span>
+            </div>
+          )}
         </div>
       )}
 
@@ -112,21 +164,32 @@ export function TradeExecutions({ tradeId, tradeEntryDate }: TradeExecutionsProp
         <p className="text-xs text-muted-foreground text-center py-4">No additional executions</p>
       ) : (
         <div className="space-y-1">
-          {executions.map(ex => (
-            <div key={ex.id} className="flex items-center justify-between bg-secondary rounded-lg px-3 py-2 text-xs">
-              <div className="flex items-center gap-3">
-                <span className={`font-bold uppercase ${ex.execution_type === 'entry' ? 'text-[hsl(var(--chart-green))]' : 'text-[hsl(var(--chart-red))]'}`}>
-                  {ex.execution_type}
-                </span>
-                <span className="font-mono">${ex.price}</span>
-                <span className="text-muted-foreground">×{ex.quantity}</span>
-                <span className="text-muted-foreground">{format(parseISO(ex.executed_at), 'MMM dd HH:mm')}</span>
+          {executions.map(ex => {
+            const isExit = ex.execution_type === 'exit';
+            const calc = symbol && entryPrice != null
+              ? movementToDollars(symbol, assetType, direction, entryPrice, Number(ex.price), Number(ex.quantity))
+              : null;
+            return (
+              <div key={ex.id} className="flex items-center justify-between bg-secondary rounded-lg px-3 py-2 text-xs">
+                <div className="flex items-center gap-3">
+                  <span className={`font-bold uppercase ${ex.execution_type === 'entry' ? 'text-[hsl(var(--chart-green))]' : 'text-[hsl(var(--chart-red))]'}`}>
+                    {ex.execution_type}
+                  </span>
+                  <span className="font-mono">${ex.price}</span>
+                  <span className="text-muted-foreground">×{ex.quantity}</span>
+                  <span className="text-muted-foreground">{format(parseISO(ex.executed_at), 'MMM dd HH:mm')}</span>
+                  {calc && isExit && (
+                    <span className={`font-mono font-bold ${calc.dollars >= 0 ? 'text-[hsl(var(--chart-green))]' : 'text-[hsl(var(--chart-red))]'}`}>
+                      {calc.dollars >= 0 ? '+' : ''}${calc.dollars.toFixed(2)}
+                    </span>
+                  )}
+                </div>
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => deleteExecution.mutate(ex.id)}>
+                  <Trash2 className="h-3 w-3 text-muted-foreground" />
+                </Button>
               </div>
-              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => deleteExecution.mutate(ex.id)}>
-                <Trash2 className="h-3 w-3 text-muted-foreground" />
-              </Button>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

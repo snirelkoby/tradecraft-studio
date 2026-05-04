@@ -10,9 +10,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TradingViewWidget } from './TradingViewWidget';
 import { ScreenshotUpload } from './ScreenshotUpload';
 import { TradeExecutions } from './TradeExecutions';
+import { TagInput } from './TagInput';
 import { TrendingUp, TrendingDown, Edit3, Save, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
-import { useUpdateTrade, calculateFuturesPnl } from '@/hooks/useTrades';
+import { useUpdateTrade, calculateFuturesPnl, useTrades } from '@/hooks/useTrades';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { FUTURES_CONFIG, FOREX_PAIRS, CRYPTO_SYMBOLS } from '@/lib/assetConfig';
@@ -34,8 +35,13 @@ export function TradeDetail({ trade, open, onOpenChange, trades, onTradeChange }
   const updateTrade = useUpdateTrade();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<Partial<Trade>>({});
+  const [editTags, setEditTags] = useState<string[]>([]);
   const [unrealizedPnl, setUnrealizedPnl] = useState<number | null>(null);
   const [livePrice, setLivePrice] = useState<number | null>(null);
+
+  // Suggestions for tag input
+  const allTrades = useTrades().data ?? [];
+  const tagSuggestions = [...new Set(allTrades.flatMap(t => t.tags ?? []))];
 
   // Fetch blueprints for strategy dropdown
   const { data: blueprints } = useQuery({
@@ -66,9 +72,11 @@ export function TradeDetail({ trade, open, onOpenChange, trades, onTradeChange }
         entry_date: trade.entry_date,
         exit_date: trade.exit_date,
         notes: trade.notes,
+        psych_notes: (trade as any).psych_notes ?? null,
         strategy: trade.strategy,
         status: trade.status,
       });
+      setEditTags(trade.tags ?? []);
       setEditing(false);
       setUnrealizedPnl(null);
       setLivePrice(null);
@@ -184,6 +192,7 @@ export function TradeDetail({ trade, open, onOpenChange, trades, onTradeChange }
         id: trade.id,
         ...form,
         symbol,
+        tags: editTags.length > 0 ? editTags : null,
         pnl,
         pnl_percent: pnlPercent,
         status,
@@ -336,16 +345,20 @@ export function TradeDetail({ trade, open, onOpenChange, trades, onTradeChange }
                 } />
               </div>
 
-              {(trade.tags ?? []).length > 0 && (
-                <div className="pt-2">
-                  <p className="text-[10px] text-muted-foreground uppercase mb-1">Tags</p>
+              <div className="pt-2">
+                <p className="text-[10px] text-muted-foreground uppercase mb-1">Tags</p>
+                {editing ? (
+                  <TagInput tags={editTags} onChange={setEditTags} suggestions={tagSuggestions} />
+                ) : (trade.tags ?? []).length > 0 ? (
                   <div className="flex flex-wrap gap-1">
                     {(trade.tags ?? []).map(tag => (
                       <Badge key={tag} variant="secondary" className="text-[10px] bg-primary/10 text-primary">{tag}</Badge>
                     ))}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <p className="text-[11px] text-muted-foreground">—</p>
+                )}
+              </div>
             </div>
           </div>
 
@@ -367,18 +380,43 @@ export function TradeDetail({ trade, open, onOpenChange, trades, onTradeChange }
             <Tabs defaultValue="notes">
               <TabsList className="bg-secondary border border-border">
                 <TabsTrigger value="notes" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs">Notes</TabsTrigger>
-                <TabsTrigger value="psych" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs">🧠 ניתוח פסיכולוגי</TabsTrigger>
+                <TabsTrigger value="psych-journal" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs">🧠 יומן פסיכולוגי</TabsTrigger>
+                <TabsTrigger value="psych" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs">🧠 ניתוח AI</TabsTrigger>
                 <TabsTrigger value="executions" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs">Executions</TabsTrigger>
                 <TabsTrigger value="attachments" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs">Attachments</TabsTrigger>
               </TabsList>
 
               <TabsContent value="notes">
                 {editing ? (
-                  <Textarea value={form.notes ?? ''} onChange={e => setForm({ ...form, notes: e.target.value })} className="bg-secondary" rows={4} placeholder="Trade notes..." />
+                  <Textarea value={form.notes ?? ''} onChange={e => setForm({ ...form, notes: e.target.value })} className="bg-secondary" rows={5} placeholder="Trade plan, reasoning, market context..." />
                 ) : (
-                  trade.notes ? <p className="text-sm bg-secondary rounded-lg p-3">{trade.notes}</p>
+                  trade.notes ? <p className="text-sm bg-secondary rounded-lg p-3 whitespace-pre-wrap">{trade.notes}</p>
                   : <p className="text-sm text-muted-foreground py-4 text-center">No notes</p>
                 )}
+              </TabsContent>
+
+              <TabsContent value="psych-journal">
+                <div className="space-y-2" dir="rtl">
+                  <p className="text-[11px] text-muted-foreground">
+                    כתוב כאן את הצד הפסיכולוגי של העסקה — רגשות, מחשבות, לחץ, FOMO, ביטחון, היסוס. נשמר על העסקה לתמיד.
+                  </p>
+                  {editing ? (
+                    <Textarea
+                      value={form.psych_notes ?? ''}
+                      onChange={e => setForm({ ...form, psych_notes: e.target.value })}
+                      className="bg-secondary"
+                      rows={6}
+                      placeholder="איך הרגשת לפני / במהלך / אחרי העסקה?"
+                      dir="rtl"
+                    />
+                  ) : (trade as any).psych_notes ? (
+                    <p className="text-sm bg-secondary rounded-lg p-3 whitespace-pre-wrap">{(trade as any).psych_notes}</p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground py-4 text-center">
+                      אין הערות פסיכולוגיות. לחץ Edit כדי להוסיף.
+                    </p>
+                  )}
+                </div>
               </TabsContent>
 
               <TabsContent value="psych">
@@ -386,7 +424,14 @@ export function TradeDetail({ trade, open, onOpenChange, trades, onTradeChange }
               </TabsContent>
 
               <TabsContent value="executions">
-                <TradeExecutions tradeId={trade.id} tradeEntryDate={trade.entry_date} />
+                <TradeExecutions
+                  tradeId={trade.id}
+                  tradeEntryDate={trade.entry_date}
+                  symbol={trade.symbol}
+                  assetType={trade.asset_type}
+                  entryPrice={trade.entry_price}
+                  direction={trade.direction}
+                />
               </TabsContent>
 
               <TabsContent value="attachments">
@@ -409,21 +454,55 @@ function StatRow({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
+type Tone = 'strict' | 'encouraging';
+type Phase = 'idle' | 'questions' | 'final';
+
 function PsychAnalysis({ trade }: { trade: Trade }) {
   const [loading, setLoading] = useState(false);
-  const [analysis, setAnalysis] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [tone, setTone] = useState<Tone>('encouraging');
+  const [scope, setScope] = useState<'written' | 'all'>('written');
+  const [phase, setPhase] = useState<Phase>('idle');
+  const [questions, setQuestions] = useState<string[]>([]);
+  const [answers, setAnswers] = useState<string[]>([]);
+  const [analysis, setAnalysis] = useState<string | null>(null);
 
-  const run = async () => {
+  const psychNotes = (trade as any).psych_notes ?? null;
+  const hasContent = !!(trade.notes || psychNotes || trade.strategy || (trade.tags && trade.tags.length));
+
+  const generateQuestions = async () => {
+    setLoading(true);
+    setError(null);
+    setAnalysis(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('trade-journal-ai', {
+        body: { trade, mode: 'psych-questions', tone, scope },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const qs = (data.questions ?? []) as string[];
+      setQuestions(qs);
+      setAnswers(qs.map(() => ''));
+      setPhase('questions');
+    } catch (e: any) {
+      setError(e.message || 'Failed to generate questions');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const finalize = async () => {
     setLoading(true);
     setError(null);
     try {
+      const qa = questions.map((q, i) => ({ q, a: answers[i] || '' }));
       const { data, error } = await supabase.functions.invoke('trade-journal-ai', {
-        body: { trade, mode: 'psych' },
+        body: { trade, mode: 'psych', tone, scope, qa },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       setAnalysis(data.summary);
+      setPhase('final');
     } catch (e: any) {
       setError(e.message || 'Failed to generate analysis');
     } finally {
@@ -431,22 +510,89 @@ function PsychAnalysis({ trade }: { trade: Trade }) {
     }
   };
 
-  const hasNotes = !!(trade.notes || trade.strategy || (trade.tags && trade.tags.length));
+  const reset = () => {
+    setPhase('idle');
+    setQuestions([]);
+    setAnswers([]);
+    setAnalysis(null);
+    setError(null);
+  };
 
   return (
     <div className="space-y-3" dir="rtl">
-      {!hasNotes && (
+      {!hasContent && (
         <p className="text-xs text-muted-foreground bg-secondary/50 rounded-lg p-3">
-          הוסף הערות, אסטרטגיה או תגיות לעסקה כדי לקבל ניתוח פסיכולוגי איכותי על מה שכתבת.
+          הוסף הערות, יומן פסיכולוגי או תגיות לעסקה כדי לקבל ניתוח איכותי.
         </p>
       )}
-      <div className="flex justify-end">
-        <Button size="sm" onClick={run} disabled={loading}>
-          {loading ? 'מנתח...' : analysis ? 'נתח שוב' : '🧠 נתח פסיכולוגית'}
-        </Button>
+
+      <div className="flex flex-wrap items-center gap-2 bg-secondary/40 rounded-lg p-3">
+        <div className="flex items-center gap-1.5">
+          <span className="text-[11px] text-muted-foreground">טון:</span>
+          <Button size="sm" variant={tone === 'encouraging' ? 'default' : 'outline'} className="h-7 text-xs" onClick={() => setTone('encouraging')}>
+            🤗 מעודד
+          </Button>
+          <Button size="sm" variant={tone === 'strict' ? 'default' : 'outline'} className="h-7 text-xs" onClick={() => setTone('strict')}>
+            🪖 מחמיר
+          </Button>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-[11px] text-muted-foreground">היקף:</span>
+          <Button size="sm" variant={scope === 'written' ? 'default' : 'outline'} className="h-7 text-xs" onClick={() => setScope('written')}>
+            רק מה שרשמתי
+          </Button>
+          <Button size="sm" variant={scope === 'all' ? 'default' : 'outline'} className="h-7 text-xs" onClick={() => setScope('all')}>
+            כולל ביצועים
+          </Button>
+        </div>
+        <div className="ms-auto flex items-center gap-2">
+          {phase !== 'idle' && (
+            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={reset}>איפוס</Button>
+          )}
+          {phase === 'idle' && (
+            <Button size="sm" onClick={generateQuestions} disabled={loading}>
+              {loading ? 'יוצר שאלות...' : '🎯 התחל ניתוח עם שאלות המשך'}
+            </Button>
+          )}
+        </div>
       </div>
+
       {error && <p className="text-xs text-[hsl(var(--chart-red))]">{error}</p>}
-      {analysis && (
+
+      {phase === 'questions' && (
+        <div className="space-y-3 bg-secondary/30 rounded-lg p-4">
+          <p className="text-xs text-muted-foreground">
+            ענה על השאלות הממוקדות (אפשר לדלג על חלקן) ואז קבל סיכום פסיכולוגי מותאם.
+          </p>
+          {questions.map((q, i) => (
+            <div key={i} className="space-y-1.5">
+              <p className="text-sm font-medium">
+                <span className="text-primary me-1">{i + 1}.</span>{q}
+              </p>
+              <Textarea
+                value={answers[i]}
+                onChange={e => {
+                  const next = [...answers]; next[i] = e.target.value; setAnswers(next);
+                }}
+                rows={2}
+                className="bg-background text-sm"
+                dir="rtl"
+                placeholder="התשובה שלך..."
+              />
+            </div>
+          ))}
+          <div className="flex justify-end gap-2 pt-2">
+            <Button size="sm" variant="outline" onClick={generateQuestions} disabled={loading}>
+              שאלות חדשות
+            </Button>
+            <Button size="sm" onClick={finalize} disabled={loading}>
+              {loading ? 'מנתח...' : '🧠 צור סיכום פסיכולוגי'}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {phase === 'final' && analysis && (
         <div className="bg-secondary/50 rounded-lg p-4 text-sm whitespace-pre-wrap leading-relaxed">
           {analysis}
         </div>
