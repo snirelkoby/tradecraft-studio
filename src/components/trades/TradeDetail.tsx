@@ -72,9 +72,11 @@ export function TradeDetail({ trade, open, onOpenChange, trades, onTradeChange }
         entry_date: trade.entry_date,
         exit_date: trade.exit_date,
         notes: trade.notes,
+        psych_notes: (trade as any).psych_notes ?? null,
         strategy: trade.strategy,
         status: trade.status,
       });
+      setEditTags(trade.tags ?? []);
       setEditing(false);
       setUnrealizedPnl(null);
       setLivePrice(null);
