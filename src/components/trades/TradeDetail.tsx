@@ -35,8 +35,13 @@ export function TradeDetail({ trade, open, onOpenChange, trades, onTradeChange }
   const updateTrade = useUpdateTrade();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<Partial<Trade>>({});
+  const [editTags, setEditTags] = useState<string[]>([]);
   const [unrealizedPnl, setUnrealizedPnl] = useState<number | null>(null);
   const [livePrice, setLivePrice] = useState<number | null>(null);
+
+  // Suggestions for tag input
+  const allTrades = useTrades().data ?? [];
+  const tagSuggestions = [...new Set(allTrades.flatMap(t => t.tags ?? []))];
 
   // Fetch blueprints for strategy dropdown
   const { data: blueprints } = useQuery({
