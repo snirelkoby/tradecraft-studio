@@ -98,8 +98,12 @@ export function TradingViewWidget({
     const pad = Math.max(dur * 0.5, minPad);
     let p1 = Math.floor((entry.getTime() - pad) / 1000);
     let p2 = Math.floor((exit.getTime() + pad) / 1000);
-    // Yahoo: 60m max ~730d, 1d max years
-    const maxRange = interval === '1d' || interval === '1wk' ? 86400 * 365 * 5 : 86400 * 700;
+    // Yahoo limits per interval
+    const maxRange =
+      interval === '1m' ? 86400 * 7 :
+      interval === '5m' || interval === '15m' ? 86400 * 60 :
+      interval === '60m' ? 86400 * 700 :
+      86400 * 365 * 5;
     if (p2 - p1 > maxRange) p1 = p2 - maxRange;
     return { period1: p1, period2: p2 };
   }, [entryDate, exitDate, interval, multiDay]);
