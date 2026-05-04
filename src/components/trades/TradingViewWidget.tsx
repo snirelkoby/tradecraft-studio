@@ -27,16 +27,19 @@ interface TradingViewWidgetProps {
   takeProfit?: number | null;
 }
 
-// Pick Yahoo interval based on trade duration. Minimum is 1h per user preference.
+// Pick Yahoo interval based on trade duration.
+// Intraday → 1m candles. Multi-day → 1d.
 function pickInterval(durationHours: number, multiDay: boolean): { interval: string; label: string } {
   if (multiDay) return { interval: '1d', label: '1d' };
-  return { interval: '60m', label: '1h' };
+  return { interval: '1m', label: '1m' };
 }
 
 const INTERVAL_OPTIONS = [
+  { value: '1m', label: '1m' },
+  { value: '5m', label: '5m' },
+  { value: '15m', label: '15m' },
   { value: '60m', label: '1h' },
   { value: '1d', label: '1d' },
-  { value: '1wk', label: '1w' },
 ];
 
 export function TradingViewWidget({
