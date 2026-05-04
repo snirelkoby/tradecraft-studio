@@ -39,6 +39,7 @@ export function TradeForm({ onSuccess, accountName }: TradeFormProps) {
     fees: '3',
     strategy: '',
     notes: '',
+    psych_notes: '',
   });
 
   // Update default fees when asset type changes
