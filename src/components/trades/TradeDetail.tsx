@@ -192,6 +192,7 @@ export function TradeDetail({ trade, open, onOpenChange, trades, onTradeChange }
         id: trade.id,
         ...form,
         symbol,
+        tags: editTags.length > 0 ? editTags : null,
         pnl,
         pnl_percent: pnlPercent,
         status,
